@@ -1,5 +1,5 @@
 git add <filename> 								- add file(and/or folder?) to commit list
-git commit 									- send commit list to repository
+git commit -m"commit message"							- send commit list to repository
 git push 									- push local repo to cloud?
 git init									- create initial directory for a project (this creates a dir on local filesystem)
 git remote add <name> <url>						 	- add local repo to remote github url (example: git remote add volcano-ndk https://github.com/steveneu/volcano-NDK.git)
