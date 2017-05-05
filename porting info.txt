@@ -1,0 +1,55 @@
+P - ported to native c++ 
+NN- not ported
+T- should port? or leave in particleRenderer.java
+
+public class ParticleRenderer implements GLSurfaceView.Renderer {
+P	private int mProgram_particles;
+P	private int mProgram_texmesh;	
+P    private int vertex_attrib_idx;
+P    private int color_attrib_idx;
+P    private int muMVPMatrixHandle;
+P    private float[] mMVPMatrix = new float[16];
+P    private float[] mVMatrix = new float[16];
+P    private float[] mProjMatrix = new float[16];
+P    private float[] vCameraPos = new float[4];
+P    private float[] vUpVector = new float[4];
+P    private float[] vCurrentCameraPos = new float[4];
+P    private float[] vCurrentUpVector = new float[4];
+P    private float[] mMMatrix = new float[16];
+P    private float[] mOrientation = new float[16];
+    
+NN	Random rndGenerator; 
+    
+P    ArrayList<AParticle> particles;
+P    int particles_per_sec;  // the mean number of particles generated per interval (second)
+P    int framesdrawn;		// tracks the frames drawn for fps calculation
+P    long intervalbegin;
+P    long updatetime;
+P    long lastParticleTime; 	// the time the last particle was created
+    
+P    int updates_second;
+P    int particle_life;
+    
+P    private static final String TAG = "Particle";
+P    private static final int arraysize= 200;
+	
+NN    private Context context;
+    
+P    private int[] textureID;
+NN    private ByteBuffer texdata;
+P    private Vector gravity;
+    
+P    boolean orientcamera;
+P    boolean drawObelisk;
+P    boolean windowInitialized;
+    
+NN    private FloatBuffer vertices;
+NN    private FloatBuffer pointcolor;
+NN    private ShortBuffer indicies;
+NN    private String vertex_program;
+NN    private String fragment_program;
+P    private final float[] vertexdata =
+
+P    private final float[] colordata =
+P    private final short[] indexdata;
+    

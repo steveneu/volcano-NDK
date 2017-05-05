@@ -1,0 +1,7 @@
+2016: 
+
+wed, 12/14--------------------------------
+	found online code snip to read raw resource contents(frag,vert shader) into java string
+
+
+

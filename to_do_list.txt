@@ -1,0 +1,22 @@
+remaining tasks:
+
+	* source control? github or other
+	* could have more functions inside main draw loop so it is not one giant dump
+	* possibly simplify/refactor particle representation.  currently, particles are copied from stl vector to float array 
+	* add textures
+
+
+bugs:
+	starting in portrait mode makes strange behavior
+	little pricklies on tip of volcano
+	figure out better update logic.  currently the frequency of updates can affect the particle heights, etc.  Should have time based updates- not number or frequency of drawframe() calls to determine particle trajectories
+
+
+high level goals:
+
+	solid, no major bugs
+	have textured ground
+	have texture mapped volcano with appropriate art
+	more visible particles (thicker)
+	more particle effects like splitting, rebounding off ground
+	full screen?
