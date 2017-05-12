@@ -1,10 +1,20 @@
-git add <filename> 								- add file(and/or folder?) to commit list
-git commit -m"commit message"							- send commit list to repository
-git commit -a -m"commit message"						- send changed files to repository
-git push 									- push local repo to cloud?
-git init									- create initial directory for a project (this creates a dir on local filesystem)
-git remote add <name> <url>						 	- add local repo to remote github url (example: git remote add volcano-ndk https://github.com/steveneu/volcano-NDK.git)
-git push  <REMOTENAME> <BRANCHNAME> 						- push commits made on your local branch to a remote repository. (example: git push volcano-ndk master). must supply credential
-git status									- show status
+git add <filename> 					- add file(and/or folder?) to commit list
+git add .						- add changed files to commit list
+git commit -m"commit message"				- send commit list to repository
+git commit -a -m"commit message"			- send changed files to repository
+git push 						- push local repo to github server/cloud
+git init						- create initial directory for a project (this creates a dir on local filesystem)
+git remote add <name> <url>				- add local repo to remote github url (example: git remote add volcano-ndk https://github.com/steveneu/volcano-NDK.git)
+git push  <REMOTENAME> <BRANCHNAME> 			- push commits made on your local branch to a remote repository. (example: git push volcano-ndk master). must supply credential
+git status						- show status
+git pull -v https://github.com/steveneu/volcano-ndk	- pull down and merge changes from remote github server
+
+git rm <file>						- to remove file locally and from remote repo
+git commit -m"description"
+git push volcano-ndk master
+
+git rm --cached <file>					- remove file from repo, but not file system
 
 
+git reset -- <file>					# this restores the file status in the index
+git checkout -- <file>					# then check out a copy from the index
