@@ -29,15 +29,26 @@ public:
     void setc(float cIn);
     void setd(float dIn);
 
+    void putx(float aIn);
+    void puty(float bIn);
+    void putz(float cIn);
+    void putw(float wIn=1.0);
+
     float geta() const;
     float getb() const;
     float getc() const;
     float getd() const;
 
+    float getx() const;
+    float gety() const;
+    float getz() const;
+    float getw() const;
+
     void normalize();
 
     static Vec3 cross(const Vec3& first, const Vec3& second);
     static float dot(const Vec3& first, const Vec3& second);
+    static Vec3 subtract(const Vec3& left, const Vec3& right);
     void debugPrint(bool debugPrint, const char* vec_string);
 };
 

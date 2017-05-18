@@ -115,7 +115,7 @@ void Matrix3x3::set(int idx, float newvalue) {
     m[idx] = newvalue;
 }
 
-// input param. is a float array in row major format.
+// copy float array (row major format) into 'this' matrix.
 // store and convert to column major
 void Matrix3x3::put(float* in) {
     int pos = 0;

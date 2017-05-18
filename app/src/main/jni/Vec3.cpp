@@ -44,10 +44,20 @@ float Vec3::getb() const { return b; }
 float Vec3::getc() const { return c; }
 float Vec3::getd() const { return d; }
 
+float Vec3::getx() const { return a; }
+float Vec3::gety() const { return b; }
+float Vec3::getz() const { return c; }
+float Vec3::getw() const { return d; }
+
 void Vec3::seta(float aIn) { a = aIn; }
 void Vec3::setb(float bIn) { b = bIn; }
 void Vec3::setc(float cIn) { c = cIn; }
 void Vec3::setd(float dIn) { d = dIn; }
+
+void Vec3::putx(float xIn) { a = xIn; }
+void Vec3::puty(float yIn) { b = yIn; }
+void Vec3::putz(float zIn) { c = zIn; }
+void Vec3::putw(float wIn/*=1.0*/) { d = wIn; }
 
 void Vec3::normalize() {
     float r = sqrt( a*a + b*b + c*c );
@@ -64,8 +74,8 @@ Vec3 Vec3::cross(const Vec3& first, const Vec3& second) {
     Vec3 result;
 
     result.set(first.getb() * second.getc() - first.getc() * second.getb(),
-        first.getc() * second.geta() - first.geta() * second.getc(),
-        first.geta() * second.getb() - first.getb() * second.geta()
+               first.getc() * second.geta() - first.geta() * second.getc(),
+               first.geta() * second.getb() - first.getb() * second.geta()
     );
 
     return result;
@@ -76,6 +86,14 @@ float Vec3::dot(const Vec3& first, const Vec3& second) {
 
     return first.geta() * second.geta() + first.getb() * second.getb() +
             first.getc() * second.getc() + first.getd() * second.getd();
+}
+
+Vec3 Vec3::subtract(const Vec3& left, const Vec3& right) {
+    Vec3 result;
+    result.a = left.a - right.a;
+    result.b = left.b - right.b;
+    result.c = left.c - right.c;
+    return result;
 }
 
 //void Matrix3x3::debugPrint(bool debugPrint, const char* matrix_id) {

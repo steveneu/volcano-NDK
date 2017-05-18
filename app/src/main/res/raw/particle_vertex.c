@@ -8,13 +8,12 @@ attribute mediump vec4 vColor;
 
 varying mediump vec4 fscolor;
 
-
 void main()
 { 
 	fscolor = vColor;
 
 	// the matrix must be included as a modifier of gl_Position
 	gl_Position = uMVPMatrix * vPosition; 
-	gl_PointSize = 3.0;
+	//gl_PointSize = 1.0;
 }  
 

@@ -50,8 +50,8 @@ static const int vCount = 48;              // number of values in vertex array f
                                             // java equivalent is vertexdata.length
 static const int particleCount = 200;
 static const bool drawParticles = false;
-// from android samples
-/* return current time in milliseconds */
+
+// return current time in milliseconds
 static long now_ms(void) {
     long result = 0;
     struct timespec res;
@@ -213,7 +213,6 @@ class sceneManager {
     float vCurrentUpVector[4]; // = new float[4];
 
     Matrix3x3 mOrientation;
-    Matrix3x3 mLookAtMat;
 
     std::vector<AParticle> particles;
     int particles_per_sec;  // the mean number of particles generated per interval (second)
@@ -269,6 +268,10 @@ public:
     void storeOrientation(float* in);
     void printGLString(const char *name, GLenum s);
     void checkGlError(const char* op);
+    void setLookAt(Matrix3x3& matrix,			// allocate this before calling with: matrix = new float[16];
+                   const Vec3& eye,
+                   const Vec3& target,
+                   const Vec3& upDir);
     GLuint loadShader(GLenum shaderType, const char* pSource);
     GLuint createProgram(const char* pVertexSource, const char* pFragmentSource);
     void surfaceChanged(int w, int h);
@@ -435,29 +438,58 @@ sceneManager::~sceneManager() {
 //    m[1] = m[2] = m[3] = m[4] = m[6] = m[7] = m[8] = m[9] = m[11]= m[12]= m[13]= m[14]= 0;
 //}
 
-void sceneManager::changeLookAt() {
-    Point cameraPos;
-    Vec3 upVector;
-    if (!orientcamera) {
-        cameraPos.putx(0.0);
-        cameraPos.puty(0.0);
-        cameraPos.putz(3.0);
+// replacement for Matrix.setLookAtM()
+// todo: use this in place of setLookAtM() to see if program still works.  if true, then use same code
+// on native side instead of hardcoded chunk in changeLookAt()
+// ported to java from Songho's code: http://songho.ca/opengl/gl_camera.html#lookat
+void sceneManager::setLookAt(Matrix3x3& matrix,			// allocate this before calling with: matrix = new float[16];
+               const Vec3& eye,
+               const Vec3& target,
+               const Vec3& upDir)
+{
+    Vec3 forward = Vec3::subtract(eye, target);
+    forward.normalize();
 
-        upVector.set(vUpVector[0], vUpVector[1], vUpVector[2]);
-    }
+    Vec3 left = Vec3::cross(upDir, forward);
+    left.normalize();
+
+    Vec3 up = Vec3::cross(forward, left);
+
+    matrix.makeIdentity();
+
+    // set rotation part, inverse rotation matrix: M^-1 = M^T for Euclidean transform
+    matrix.set(0, left.getx());         //    matrix[0] = left.a;
+    matrix.set(4, left.gety());         //    matrix[4] = left.b;
+    matrix.set(8, left.getz());         //    matrix[8] = left.c;
+    matrix.set(1, up.getx());           //    matrix[1] = up.a;
+    matrix.set(5, up.gety());           //    matrix[5] = up.b;
+    matrix.set(9, up.getz());           //    matrix[9] = up.c;
+    matrix.set(2, forward.getx());      //    matrix[2] = forward.a;
+    matrix.set(6, forward.gety());      //    matrix[6] = forward.b;
+    matrix.set(10, forward.getz());     //    matrix[10]= forward.c;
+
+    // set translation part
+    matrix.set(12, -left.getx() * eye.getx() - left.gety() * eye.gety() - left.getz() * eye.getz());      //    matrix[12]= -left.a * eye.a - left.b * eye.getb - left.c * eye.c;
+    matrix.set(13, -up.getx() * eye.getx() - up.gety() * eye.gety() - up.getz() * eye.getz());      //    matrix[13]= -up.a * eye.a - up.b * eye.getb - up.c * eye.getc;
+    matrix.set(14, -forward.getx() * eye.getx() - forward.gety() * eye.gety() - forward.getz() * eye.getz());      //    matrix[14]= -forward.a * eye.a - forward.b * eye.b - forward.c * eye.c;
+}
+
+void sceneManager::changeLookAt() {
+    Vec3 cameraPos;
+    Vec3 upVector;
+    Matrix3x3 mLookAtMat;
+
+    cameraPos.putx(vCameraPos[0]);
+    cameraPos.puty(vCameraPos[1]);
+    cameraPos.putz(vCameraPos[2]);
+
+    upVector.set(vUpVector[0], vUpVector[1], vUpVector[2]);
 
     muMVPMatrixHandle = glGetUniformLocation(mProgram_particles, "uMVPMatrix");
-    Point center(0,0,0);
+    Vec3 target(0,0,0);
 
-    Vec3 c0(0.0, 1.0, 0.0, 0.0);
-    Vec3 c1(-1.0, 0.0, 0.0, 0.0);
-    Vec3 c2(0.0, 0.0, 1.0, 0.0);
-    Vec3 c3(0.0, 0.0, -3.0, 1.0);
-
-    mLookAtMat.setcol(0, c0);
-    mLookAtMat.setcol(1, c1);
-    mLookAtMat.setcol(2, c2);
-    mLookAtMat.setcol(3, c3);
+    // old look at matrix was hardcoded, now use handbuilt setLookAt()
+    setLookAt(mLookAtMat, cameraPos, target, upVector);
 
     mLookAtMat.debugPrint(debugLog, "mLookAtMat");
     mOrientation.debugPrint(debugLog, "mOrientation");
@@ -474,10 +506,9 @@ void sceneManager::toggleTouchdown() {
 }
 
 void sceneManager::storeOrientation(float* in) {
-    if (!orientcamera)
-        return;
-
-    mOrientation.put(in);
+    if (orientcamera) {
+        mOrientation.put(in);
+    }
 }
 
 void sceneManager::printGLString(const char *name, GLenum s) {
@@ -582,7 +613,6 @@ void sceneManager::surfaceChanged(int w, int h) {
     // only do this once, then it won't be called again when the user rotates their device with the rotation set to 'unlocked'
     if (!windowInitialized)
     {
-        float ratio = static_cast<float>(w/h);
         glViewport(0, 0, w, h);
 
         if (h>w) {
@@ -599,7 +629,7 @@ void sceneManager::surfaceChanged(int w, int h) {
         Matrix3x3::frustum(mProjMatrix, -1, 1, -1, 1, 1, 8); // make projection matrix given clip planes
 
         changeLookAt();
-        windowInitialized = true;
+        //windowInitialized = true;
     }
 }
 
@@ -670,6 +700,7 @@ void sceneManager::drawFrame() {
             particle_vector.set(0.0, 0.0, 0.0);
             particle_vector.setd(1.0);
 
+            // magnitude & angle_a are random values
             particle_vector.setb(magnitude * (float) cos(right_angle - half_alpha_s + angle_a));
             particle_vector.setc(magnitude * (float) sin(right_angle - half_alpha_s + angle_a));
 
@@ -717,10 +748,10 @@ void sceneManager::drawFrame() {
             particle_vector.setc(resultVec.getc());
             particle_vector.setd(resultVec.getd());
 
-            LOGI("particle_vector[0] %.3f", resultVec.geta());
-            LOGI("particle_vector[1] %.3f", resultVec.getb());
-            LOGI("particle_vector[2] %.3f", resultVec.getc());
-            LOGI("particle_vector[3] %.3f", resultVec.getd());
+            LOGI("particle_vector[0] %.3f", particle_vector.geta());
+            LOGI("particle_vector[1] %.3f", particle_vector.getb());
+            LOGI("particle_vector[2] %.3f", particle_vector.getc());
+            LOGI("particle_vector[3] %.3f", particle_vector.getd());
 
             AParticle newparticle(0.0f, 0.0f, 1.0f, // location of emitter, a point source
                                   particle_vector.geta(), // velocity and direction of particle
