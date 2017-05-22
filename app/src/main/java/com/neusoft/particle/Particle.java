@@ -123,8 +123,14 @@ public class Particle extends Activity {
 			String vertSrc = readRawTextFile(context, R.raw.particle_vertex);
 			String fragSrc = readRawTextFile(context, R.raw.particle_fragment);
 
+			String vertTextureSrc = readRawTextFile(context, R.raw.texmesh_vertex);
+			String fragTextureSrc = readRawTextFile(context, R.raw.texmesh_fragment);
+
 			renderer.setVertexProgram(vertSrc);
 			renderer.setFragmentProgram(fragSrc);
+			renderer.setVertexTextureProgram(vertTextureSrc);
+			renderer.setFragmentTextureProgram(fragTextureSrc);
+
 			setRenderer(renderer);
 			capturedmagneticfield = false;
 		}

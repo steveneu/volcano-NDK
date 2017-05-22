@@ -40,10 +40,12 @@
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 //#define  LOGF(...)  __android_log_print(ANDROID_LOG_FATAL,LOG_TAG,__VA_ARGS__)
 
-static const unsigned char TRIANGLE = 0x1; // for sanity check
-static const unsigned char OBELISK = 0x2;
-static const unsigned char PARTICLES = 0x4;
-static const unsigned char GROUND = 0x8;
+static const unsigned short TRIANGLE = 0x1; // for sanity check
+static const unsigned short OBELISK = 0x2;
+static const unsigned short PARTICLES = 0x4;
+static const unsigned short GROUND = 0x8;
+static const unsigned short TEXTURES = 0x10;
+static const unsigned short WIREFRAME = 0x20;        // draw wireframes, if available
 
 static const char* TAG = "Particle";
 static const int vCount = 48;              // number of values in vertex array for obelisk
@@ -197,7 +199,7 @@ public:
 };
 
 class sceneManager {
-    unsigned char drawFlags;
+    unsigned short drawFlags;
     int mProgram_particles;
     int mProgram_texmesh;
 
@@ -271,7 +273,7 @@ public:
     void setLookAt(Matrix3x3& matrix,			// allocate this before calling with: matrix = new float[16];
                    const Vec3& eye,
                    const Vec3& target,
-                   const Vec3& upDir);
+                   const Vec3& upDir) const;
     GLuint loadShader(GLenum shaderType, const char* pSource);
     GLuint createProgram(const char* pVertexSource, const char* pFragmentSource);
     void surfaceChanged(int w, int h);
@@ -279,7 +281,7 @@ public:
 };
 
 sceneManager::sceneManager() {
-    drawFlags = OBELISK | PARTICLES; // controls what objects are drawn (obelisk, particles, textures, etc.)
+    drawFlags = OBELISK | PARTICLES | GROUND; // controls what objects are drawn (obelisk, particles, textures, etc.)
     debugLog = false;
 
     mProgram_particles = mProgram_texmesh = 0;
@@ -326,8 +328,8 @@ sceneManager::sceneManager() {
     particle_life = 10; //2000;
 
     setupVolcanoData();
-
     setupParticleData();
+    setupGroundData();
 }
 
 void sceneManager::setupVolcanoData() {
@@ -397,6 +399,50 @@ void sceneManager::setupVolcanoData() {
     }
 }
 
+void sceneManager::setupGroundData() {
+    if (drawFlags & GROUND) {
+        float ground_verts[] = { // 12 elements
+                 -2.0,  2.0, 0.0,      // e, 0  // ground vertices
+                 2.0, 2.0, 0.0,      // f, 1
+                2.0, -2.0, 0.0,      // g, 2
+                -2.0,  -2.0, 0.0      // h, 3
+        };
+
+        int componentCount = sizeof(ground_verts) / sizeof(*ground_verts); // gives # of elements (floats)
+        groundComponents = new ResizingArray<GLfloat>(componentCount);
+
+        for(int i=0; i<componentCount; i++) {
+            groundComponents->add(ground_verts[i]);
+        }
+
+        GLushort indices_lines[] = {0,1, 1,2, 2,3, 3,0, 0,2};   // GL_LINES
+        GLushort indices_triangles[] = {0,2,1, 0,3,2}; // GL_TRIANGLES
+        int numIndices = 0;
+        if (drawFlags & WIREFRAME) {
+            numIndices = sizeof(indices_lines) / sizeof(*indices_lines);
+        }
+        else {
+            numIndices = sizeof(indices_triangles) / sizeof(*indices_triangles);
+        }
+
+        groundIndices = new ResizingArray<GLushort>(numIndices);
+        for(int i=0; i<numIndices; i++) {
+            if (drawFlags & WIREFRAME) {
+                groundIndices->add(indices_lines[i]);
+            } else {
+                groundIndices->add(indices_triangles[i]);
+            }
+        }
+
+        groundColors = new ResizingArray<GLfloat>(componentCount * 3);
+        for(int i=0; i<componentCount; i++) {
+            groundColors->add(1.0); //0
+            groundColors->add(1.0);
+            groundColors->add(1.0);
+        }
+    }
+}
+
 void sceneManager::setupParticleData() {
     if (drawFlags & PARTICLES) {
         // 3 components per vertex, 2 vertices per particle (particle is a little line segment)
@@ -429,6 +475,10 @@ sceneManager::~sceneManager() {
     delete volcanoComponents;
     delete volcanoColors;
     delete volcanoIndices;
+
+    delete groundComponents;
+    delete groundColors;
+    delete groundIndices;
 }
 
 //// set param m to identity matrix.  assumes 4x4 matrix in column major order (OpenGL convention)
@@ -442,10 +492,10 @@ sceneManager::~sceneManager() {
 // todo: use this in place of setLookAtM() to see if program still works.  if true, then use same code
 // on native side instead of hardcoded chunk in changeLookAt()
 // ported to java from Songho's code: http://songho.ca/opengl/gl_camera.html#lookat
-void sceneManager::setLookAt(Matrix3x3& matrix,			// allocate this before calling with: matrix = new float[16];
-               const Vec3& eye,
-               const Vec3& target,
-               const Vec3& upDir)
+void sceneManager::setLookAt(Matrix3x3& matrix,		// in/out
+               const Vec3& eye,                     // in
+               const Vec3& target,                  // in
+               const Vec3& upDir) const             // in
 {
     Vec3 forward = Vec3::subtract(eye, target);
     forward.normalize();
@@ -485,7 +535,7 @@ void sceneManager::changeLookAt() {
 
     upVector.set(vUpVector[0], vUpVector[1], vUpVector[2]);
 
-    muMVPMatrixHandle = glGetUniformLocation(mProgram_particles, "uMVPMatrix");
+//    muMVPMatrixHandle = glGetUniformLocation(mProgram_particles, "uMVPMatrix");
     Vec3 target(0,0,0);
 
     // old look at matrix was hardcoded, now use handbuilt setLookAt()
@@ -629,7 +679,7 @@ void sceneManager::surfaceChanged(int w, int h) {
         Matrix3x3::frustum(mProjMatrix, -1, 1, -1, 1, 1, 8); // make projection matrix given clip planes
 
         changeLookAt();
-        //windowInitialized = true;
+        windowInitialized = true;
     }
 }
 
@@ -842,6 +892,7 @@ void sceneManager::drawFrame() {
     // send the composite modelview projection matrix to the vertex shader
     glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mMVPMatrix.get());
 
+    drawGround();
     drawVolcano();
     drawParticles();
 
@@ -922,6 +973,39 @@ void sceneManager::drawParticles() {
 }
 
 void sceneManager::drawGround() {
+    if (drawFlags & GROUND) {
+        glVertexAttribPointer(vertex_attrib_idx,
+                              3, // # of components per vertex attribute. Must be 1, 2, 3, or 4.
+                              GL_FLOAT, // data type for component
+                              GL_FALSE, // Normalized?
+                              3 * sizeof(GLfloat), // byte offset between vertex attributes. attribute is a set of elements
+                              groundComponents->data()); // define vertex array
+
+        GLfloat* colorData = groundColors->data();
+        glVertexAttribPointer(color_attrib_idx,
+                              3, // # of components per generic vertex attribute
+                              GL_FLOAT,
+                              GL_FALSE, // normalized?
+                              3 * sizeof(GLfloat), // byte offset between attributes. attribute is a set of elements
+                              colorData);
+
+        glEnableVertexAttribArray(vertex_attrib_idx);
+        glEnableVertexAttribArray(color_attrib_idx);
+
+        // Draw the particles.  each particle is a little line segment
+        GLenum drawMode = GL_TRIANGLES;
+        if (drawFlags & WIREFRAME) {
+            drawMode = GL_LINES;
+        }
+
+        glDrawElements(drawMode,
+                       groundIndices->size(),    // # of indicies in index array (# of short values, last param)
+                       GL_UNSIGNED_SHORT,  // data type of index array
+                       groundIndices->data());   // indicies_array
+
+        glDisableVertexAttribArray(vertex_attrib_idx);
+        glDisableVertexAttribArray(color_attrib_idx);
+    }
 }
 
 static sceneManager masterScene;

@@ -7,7 +7,7 @@ remaining tasks:
 
 
 bugs:
-	* starting in portrait mode makes strange behavior
+	x starting in portrait mode makes strange behavior
 	* little pricklies on tip of volcano
 	* figure out better update logic.  currently the frequency of updates can affect the particle heights, etc.  Should have time based updates- not number or frequency of drawframe() calls to determine particle trajectories
 

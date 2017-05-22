@@ -58,6 +58,8 @@ public class ParticleRenderer implements GLSurfaceView.Renderer
     private ShortBuffer indicies;
     private String vertex_program;
     private String fragment_program;
+    private String vertex_texture_program;
+    private String fragment_texture_program;
 
     public ParticleRenderer(Context ctxt) { }
     
@@ -112,14 +114,14 @@ public class ParticleRenderer implements GLSurfaceView.Renderer
     
     public void onDrawFrame(GL10 unused) 
     {
-    	int invalue=2;
-        float[] rm = new float[16];
-        float eyex, eyey, eyez, centerx, centery, centerz, upx, upy, upz;
-        eyex = eyey = eyez = centerx = centery = centerz = upx = upy = upz = 0;
-
-        Matrix.setLookAtM(rm, 0, eyex, eyey, eyez, centerx, centery, centerz,
-                upx, upy, upz);
-    	ObjectJNI.jni_drawframe(invalue);
+//    	int invalue=2;
+//        float[] rm = new float[16];
+//        float eyex, eyey, eyez, centerx, centery, centerz, upx, upy, upz;
+//        eyex = eyey = eyez = centerx = centery = centerz = upx = upy = upz = 0;
+//
+//        Matrix.setLookAtM(rm, 0, eyex, eyey, eyez, centerx, centery, centerz,
+//                upx, upy, upz);
+    	ObjectJNI.jni_drawframe();
     }
     
     // called when the 'view' is resized.  this can happen when the device is rotated 90 degrees for example
@@ -131,8 +133,13 @@ public class ParticleRenderer implements GLSurfaceView.Renderer
     public void setFragmentProgram(String inFrag) {
     	fragment_program = inFrag;
     }
-    
     public void setVertexProgram(String inVert) {
     	vertex_program = inVert;
+    }
+    public void setFragmentTextureProgram(String inFrag) {
+        fragment_texture_program = inFrag;
+    }
+    public void setVertexTextureProgram(String inVert) {
+        vertex_texture_program = inVert;
     }
 }

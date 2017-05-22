@@ -68,7 +68,7 @@ public:
     }
 
     // add element to end of list (aka push)
-    void add(float newElement) {
+    void add(T newElement) {
         if (N == length) {
             resize(2 * length);
         }

@@ -8,7 +8,7 @@ ObjectJNI {
 	}
 
 	public static native void jni_initialize(String strVertexSrc, String strFragmentSrc);
-	public static native void jni_drawframe(int invalue);
+	public static native void jni_drawframe(/*int invalue*/);
 	public static native void jni_surfaceChanged(int inwidth, int inheight);
 	public static native void jni_touchdownHandler();
 	public static native void jni_receiveMatrix(float[] jfa);
