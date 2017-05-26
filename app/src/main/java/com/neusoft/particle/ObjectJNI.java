@@ -7,7 +7,8 @@ ObjectJNI {
 		System.loadLibrary("particle-jni");
 	}
 
-	public static native void jni_initialize(String strVertexSrc, String strFragmentSrc);
+	public static native void jni_initialize(String strVertexSrc, String strFragmentSrc,
+											 String strTextureVp, String strTextureFp);
 	public static native void jni_drawframe(/*int invalue*/);
 	public static native void jni_surfaceChanged(int inwidth, int inheight);
 	public static native void jni_touchdownHandler();

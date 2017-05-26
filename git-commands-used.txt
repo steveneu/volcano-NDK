@@ -18,3 +18,11 @@ git rm --cached <file>					- remove file from repo, but not file system
 
 git reset -- <file>					# this restores the file status in the index
 git checkout -- <file>					# then check out a copy from the index
+
+--------------
+NORMAL SEQUENCE FOR CHECKINS:
+
+1) change necessary files
+2) git add .
+3) git commit -m"description"
+4) git push volcano-ndk master

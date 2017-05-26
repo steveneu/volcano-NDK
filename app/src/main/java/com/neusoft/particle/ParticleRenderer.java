@@ -94,39 +94,17 @@ public class ParticleRenderer implements GLSurfaceView.Renderer
 	// put code to create resources that need to be created when the rendering starts, and that need
 	// to be recreated when the EGL context is lost.
 	// override from GLSurfaceView.Renderer
-    public void onSurfaceCreated(GL10 unused, EGLConfig config) 
-    {  	
-    	// public static native void initialize(int width, int height, String strVertexSrc, String strFragmentSrc);
-    	
-    	//ObjectJNI.jni_initialize("vshader", "fshader");
-		ObjectJNI.jni_initialize(vertex_program, fragment_program);
-//    	mProgram_particles = makeProgramFromShaders(R.raw.particle_vertex, R.raw.particle_fragment);
-//    	
-//        // get handle to the vertex shader's vPosition attribute
-//        vertex_attrib_idx = GLES20.glGetAttribLocation(mProgram_particles, "vPosition");
-//        color_attrib_idx = GLES20.glGetAttribLocation(mProgram_particles, "vColor");
-//        
-//        mProgram_texmesh = makeProgramFromShaders(R.raw.texmesh_vertex, R.raw.texmesh_fragment);
-//        
-//        // Set the background frame color
-//        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    public void onSurfaceCreated(GL10 unused, EGLConfig config) {
+		ObjectJNI.jni_initialize(vertex_program, fragment_program, vertex_texture_program,
+                fragment_texture_program);
     }
     
-    public void onDrawFrame(GL10 unused) 
-    {
-//    	int invalue=2;
-//        float[] rm = new float[16];
-//        float eyex, eyey, eyez, centerx, centery, centerz, upx, upy, upz;
-//        eyex = eyey = eyez = centerx = centery = centerz = upx = upy = upz = 0;
-//
-//        Matrix.setLookAtM(rm, 0, eyex, eyey, eyez, centerx, centery, centerz,
-//                upx, upy, upz);
+    public void onDrawFrame(GL10 unused) {
     	ObjectJNI.jni_drawframe();
     }
     
     // called when the 'view' is resized.  this can happen when the device is rotated 90 degrees for example
-    public void onSurfaceChanged(GL10 unused, int width, int height) 
-    {
+    public void onSurfaceChanged(GL10 unused, int width, int height) {
 		ObjectJNI.jni_surfaceChanged(width, height);
     }
     

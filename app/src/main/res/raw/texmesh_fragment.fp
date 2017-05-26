@@ -1,15 +1,10 @@
 #version 100
 
-uniform sampler2D colorMap;
+uniform sampler2D texture_unit;
 
-in vec4 vVaryingTexCoords;
-out vec4 vFragColor;
-
-precision mediump float;
-//varying mediump vec4 fscolor;
+varying vec2 vVaryingTexCoords;
 
 void main()
 {
-    //gl_FragColor = fscolor;
-    vFragColor = texture(colorMap, vVaryingTexCoords.st);
+    gl_FragColor = texture2D(texture_unit, vVaryingTexCoords);
 }

@@ -15,7 +15,6 @@
  */
 
 // OpenGL ES 2.0 code
-
 #include <jni.h>
 
 //#include "com_neusoft_particle_ObjectJNI.h" // includes <jni.h>
@@ -44,7 +43,7 @@ static const unsigned short TRIANGLE = 0x1; // for sanity check
 static const unsigned short OBELISK = 0x2;
 static const unsigned short PARTICLES = 0x4;
 static const unsigned short GROUND = 0x8;
-static const unsigned short TEXTURES = 0x10;
+static const unsigned short TEXTURE = 0x10;
 static const unsigned short WIREFRAME = 0x20;        // draw wireframes, if available
 
 static const char* TAG = "Particle";
@@ -200,12 +199,14 @@ public:
 
 class sceneManager {
     unsigned short drawFlags;
-    int mProgram_particles;
-    int mProgram_texmesh;
+    GLuint mProgram_particles;
+    GLuint mProgram_texmesh;
 
-    int vertex_attrib_idx;
-    int color_attrib_idx;
-    int muMVPMatrixHandle;
+    GLint vertex_attrib_idx;
+    GLint color_attrib_idx;
+    GLint texture_coords_idx;
+    GLint texture_uniform;
+    GLint muMVPMatrixHandle;
 
     Matrix3x3 mMVPMatrix;
     Matrix3x3 mVMatrix;
@@ -227,11 +228,10 @@ class sceneManager {
     int updates_second;
     int particle_life;
     int arraysize;
-    int *textureID;
+    GLuint textureUnit0;              // main texture unit for application
 
     Vec3 gravity;
 
-    bool orientcamera;
     bool windowInitialized;
     bool debugLog;
 
@@ -243,6 +243,7 @@ class sceneManager {
     ResizingArray<GLfloat>* volcanoColors;
 
     ResizingArray<GLfloat>* groundComponents;
+    ResizingArray<GLfloat>* groundTexComponents;
     ResizingArray<GLushort>* groundIndices;
     ResizingArray<GLfloat>* groundColors;
 
@@ -250,8 +251,11 @@ class sceneManager {
     ResizingArray<GLushort>* particleIndices;
     ResizingArray<GLfloat>* particleColors;
 
-    GLuint gProgram;
-    GLuint gvPositionHandle;
+    // convert indices of 3d array to absolute position of row major array
+    inline void assign(GLubyte* array, int row, int col, int pos, GLubyte value, int column_count) {
+        int idx = row * column_count + col + pos;
+        array[idx] = value;
+    }
 
     void setupVolcanoData();
     void setupGroundData();
@@ -261,6 +265,8 @@ class sceneManager {
     void drawGround();
     void drawParticles();
 
+    void setTextureProgram();
+    void setBasicProgram();
 public:
     sceneManager();
     ~sceneManager();
@@ -274,14 +280,18 @@ public:
                    const Vec3& eye,
                    const Vec3& target,
                    const Vec3& upDir) const;
+    void initTextures();
     GLuint loadShader(GLenum shaderType, const char* pSource);
-    GLuint createProgram(const char* pVertexSource, const char* pFragmentSource);
+    void createProgram(GLuint* program, const char* pVertexSource, const char* pFragmentSource);
+    void createPrograms(const char* pVertexSource, const char* pFragmentSource,
+                   const char* pVertexTextureSrc, const char* pFragmentTextureSrc);
     void surfaceChanged(int w, int h);
     void drawFrame();
 };
 
 sceneManager::sceneManager() {
     drawFlags = OBELISK | PARTICLES | GROUND; // controls what objects are drawn (obelisk, particles, textures, etc.)
+//    drawFlags = OBELISK | PARTICLES | GROUND;
     debugLog = false;
 
     mProgram_particles = mProgram_texmesh = 0;
@@ -298,13 +308,11 @@ sceneManager::sceneManager() {
 
     particles_per_sec = framesdrawn = intervalbegin = updatetime = lastParticleTime=0;  // the mean number of particles generated per interval (second)
     updates_second = particle_life = 0;
-
     arraysize= 200;
 
-    orientcamera = windowInitialized = false;
+    windowInitialized = false;
     mOrientation.makeIdentity();
 
-    textureID = new int[1];
     framesdrawn = 0;
 
     // todo: get clock values from system for the following:
@@ -399,6 +407,57 @@ void sceneManager::setupVolcanoData() {
     }
 }
 
+void sceneManager::initTextures() {
+    if (drawFlags & TEXTURE) {
+        glGenTextures(1, &textureUnit0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureUnit0);
+
+        // generate square texture, checkerboard pattern
+        const int dimension = 64;
+        int c = 0;
+        int index = 0;
+        GLubyte* checkImage = new GLubyte[dimension*dimension*4];
+        for(int i=0; i<dimension; i++) {
+            for(int j=0; j<dimension; j++) {
+                //c = ((((i & 0x8) == 0)^((j & 0x8))==0))*255;
+                // precedence descending order: *, ==, &, ^, =
+//                bool iresult = i & 0x8;
+//                bool jresult = i & 0x8;
+//                c = (iresult == 0) ^ (jresult == 0);
+//                c *= 255;
+//                c = (( ((i & 0x8) == 0)^((j & 0x8)==0))*255;
+                c = (
+                            ((i & 0x8) == 0)^((j & 0x8) == 0)
+                    ) * 255;
+                // inline int sceneManager::assign(GLubyte* array, int row, int col, int pos, GLubyte value, int column_count) {
+                c = 128;
+                assign(checkImage, i, j, 0, static_cast<GLubyte>(c), dimension);
+                assign(checkImage, i, j, 1, static_cast<GLubyte>(c), dimension);
+                assign(checkImage, i, j, 2, static_cast<GLubyte>(c), dimension);
+                assign(checkImage, i, j, 3, static_cast<GLubyte>(0xFF), dimension);
+            }
+        }
+
+        // copies client memory to GPU texture unit?
+        glTexImage2D(GL_TEXTURE_2D,
+                     0, // base image level for mipmapping
+                     GL_RGBA, // internal format
+                     64, // width
+                     64, // height
+                     0,  // border width, must be 0
+                     GL_RGBA, // format of texels, should match 3rd parameter
+                     GL_UNSIGNED_BYTE, //
+                     checkImage); // pointer to image data
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        // at this point can release memory?
+        delete[] checkImage;
+    }
+}
+
 void sceneManager::setupGroundData() {
     if (drawFlags & GROUND) {
         float ground_verts[] = { // 12 elements
@@ -413,6 +472,21 @@ void sceneManager::setupGroundData() {
 
         for(int i=0; i<componentCount; i++) {
             groundComponents->add(ground_verts[i]);
+        }
+
+        // store texture coordinates for ground
+        if (drawFlags & TEXTURE) {
+            float groundTexCoords[] = {
+                    0.0, 1.0,
+                    1.0, 1.0,
+                    1.0, 0.0,
+                    0.0, 0.0
+            };
+            int stCount = sizeof(groundTexCoords) / sizeof(*groundTexCoords);
+            groundTexComponents = new ResizingArray<GLfloat>(stCount);
+            for(int i=0; i<stCount; i++) {
+                groundTexComponents->add(groundTexCoords[i]);
+            }
         }
 
         GLushort indices_lines[] = {0,1, 1,2, 2,3, 3,0, 0,2};   // GL_LINES
@@ -479,6 +553,14 @@ sceneManager::~sceneManager() {
     delete groundComponents;
     delete groundColors;
     delete groundIndices;
+
+    if (drawFlags & TEXTURE) {
+        glDeleteTextures(1, &textureUnit0);
+    }
+
+    glDeleteProgram(mProgram_particles);
+    glDeleteProgram(mProgram_texmesh);
+
 }
 
 //// set param m to identity matrix.  assumes 4x4 matrix in column major order (OpenGL convention)
@@ -551,14 +633,30 @@ void sceneManager::changeLookAt() {
 }
 
 void sceneManager::toggleTouchdown() {
-    orientcamera = !orientcamera;
+    // cycle draw modes
+    //drawFlags; WIREFRAME, TEXTURE, <neither>
+    // INITIAL: drawFlags = OBELISK | PARTICLES | GROUND; // controls what objects are drawn (obelisk, particles, textures, etc.)
+    if (
+        !((drawFlags | WIREFRAME) == WIREFRAME) && !((drawFlags | TEXTURE) == TEXTURE)
+        ) {
+        drawFlags ^= WIREFRAME; // toggle WIREFRAME on
+    }
+    else if (
+            ((drawFlags | WIREFRAME)==WIREFRAME) && !((drawFlags | TEXTURE) == TEXTURE)
+            ) {
+        drawFlags ^= WIREFRAME; // toggle WIREFRAME off
+        drawFlags ^= TEXTURE;   // toggle TEXTURE on
+    }
+    else if ( !((drawFlags | WIREFRAME)==WIREFRAME) && ((drawFlags | TEXTURE)==TEXTURE)
+            ) {
+        drawFlags ^= TEXTURE; // toggle TEXTURE off, aka back to defaults
+    }
+
     changeLookAt();
 }
 
 void sceneManager::storeOrientation(float* in) {
-    if (orientcamera) {
-        mOrientation.put(in);
-    }
+    mOrientation.put(in);
 }
 
 void sceneManager::printGLString(const char *name, GLenum s) {
@@ -598,65 +696,60 @@ GLuint sceneManager::loadShader(GLenum shaderType, const char* pSource) {
     return shader;
 }
 
-GLuint sceneManager::createProgram(const char* pVertexSource, const char* pFragmentSource) {
+void sceneManager::createPrograms(const char* pVertexSource, const char* pFragmentSource,
+                                  const char* pVertexTextureSrc, const char* pFragmentTextureSrc)
+{
+    createProgram(&mProgram_particles, pVertexSource, pFragmentSource);
+    createProgram(&mProgram_texmesh, pVertexTextureSrc, pFragmentTextureSrc);
+}
+
+// create OpenGL program given source to vertex and fragment shaders
+// pVertexSource[in]- pointer to vertex program src
+// pFragmentSource[in]- pointer to fragment program src
+// program [in/out]- pointer to program identifier, stored as member
+void sceneManager::createProgram(GLuint* program, const char* pVertexSource, const char* pFragmentSource) {
     GLuint vertexShader = loadShader(GL_VERTEX_SHADER, pVertexSource);
     if (!vertexShader) {
-        return 0;
+        // todo: handle error
+        return;
     }
 
     GLuint pixelShader = loadShader(GL_FRAGMENT_SHADER, pFragmentSource);
     if (!pixelShader) {
-        return 0;
+        // todo: handle error
+        return;
     }
 
-    /*gProgram*/ mProgram_particles = glCreateProgram();
-    if (mProgram_particles) {
-        glAttachShader(mProgram_particles, vertexShader);
+    /*gProgram*/ *program = glCreateProgram();
+    if (*program) {
+        glAttachShader(*program, vertexShader);
         checkGlError("glAttachShader");
-        glAttachShader(mProgram_particles, pixelShader);
+        glAttachShader(*program, pixelShader);
         checkGlError("glAttachShader");
-        glLinkProgram(mProgram_particles);
+        glLinkProgram(*program);
         GLint linkStatus = GL_FALSE;
-        glGetProgramiv(mProgram_particles, GL_LINK_STATUS, &linkStatus);
+        glGetProgramiv(*program, GL_LINK_STATUS, &linkStatus);
         if (linkStatus != GL_TRUE) {
             GLint bufLength = 0;
-            glGetProgramiv(mProgram_particles, GL_INFO_LOG_LENGTH, &bufLength);
+            glGetProgramiv(*program, GL_INFO_LOG_LENGTH, &bufLength);
             if (bufLength) {
 
                 char* buf = new char[bufLength];
                 if (buf) {
-                    glGetProgramInfoLog(mProgram_particles, bufLength, NULL, buf);
+                    glGetProgramInfoLog(*program, bufLength, NULL, buf);
                     LOGE("Could not link program:\n%s\n", buf);
                     delete[] buf;
                 }
             }
-            glDeleteProgram(mProgram_particles);
-            mProgram_particles = 0;
+            glDeleteProgram(*program);
+            *program = 0;
         }
     }
 
-    if (!mProgram_particles) {
+    if (!*program) {
         LOGE("Could not create program.");
-        return static_cast<GLuint>(0);
+        return;
     }
-
-    vertex_attrib_idx = glGetAttribLocation(mProgram_particles, "vPosition");
-    checkGlError("glGetAttribLocation");
-    LOGI("glGetAttribLocation(\"vPosition\") = %d\n", vertex_attrib_idx);
-
-    color_attrib_idx = glGetAttribLocation(mProgram_particles, "vColor");
-    checkGlError("glGetAttribLocation");
-    LOGI("glGetAttribLocation(\"vColor\") = %d\n", color_attrib_idx);
-
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
-    // Add program to OpenGL environment.
-    glUseProgram(mProgram_particles);
-
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-
-    return mProgram_particles;
 }
 
 void sceneManager::surfaceChanged(int w, int h) {
@@ -681,6 +774,37 @@ void sceneManager::surfaceChanged(int w, int h) {
         changeLookAt();
         windowInitialized = true;
     }
+}
+
+// set program state for drawing with textures
+void sceneManager::setTextureProgram() {
+    texture_coords_idx = glGetAttribLocation(mProgram_texmesh, "vTexCoords");
+    checkGlError("glGetAttribLocation");
+
+    texture_uniform = glGetUniformLocation(mProgram_texmesh, "texture_unit");
+
+    glClearColor(0.0f, 0.5f, 0.0f, 1.0f);
+    glUseProgram(mProgram_texmesh);
+    glUniform1i(texture_uniform, 0);
+//    glEnable(GL_CULL_FACE);
+//    glCullFace(GL_BACK);
+}
+
+// set state for drawing basic vertex/fragment shader pair (flat shading or wireframe)
+void sceneManager::setBasicProgram() {
+    vertex_attrib_idx = glGetAttribLocation(mProgram_particles, "vPosition");
+    checkGlError("glGetAttribLocation");
+    LOGI("glGetAttribLocation(\"vPosition\") = %d\n", vertex_attrib_idx);
+
+    color_attrib_idx = glGetAttribLocation(mProgram_particles, "vColor");
+    checkGlError("glGetAttribLocation");
+    LOGI("glGetAttribLocation(\"vColor\") = %d\n", color_attrib_idx);
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glUseProgram(mProgram_particles);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
 }
 
 void sceneManager::drawFrame() {
@@ -892,9 +1016,22 @@ void sceneManager::drawFrame() {
     // send the composite modelview projection matrix to the vertex shader
     glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mMVPMatrix.get());
 
-    drawGround();
-    drawVolcano();
-    drawParticles();
+    if (drawFlags & TEXTURE) {
+        setTextureProgram();
+        drawGround();
+
+        setBasicProgram();
+        drawVolcano();
+        drawParticles();
+    }
+    else {
+        setBasicProgram();
+        drawGround();
+        drawVolcano();
+        drawParticles();
+    }
+
+
 
     framesdrawn++;
     // every few seconds, write average fps over the last 10 seconds to log
@@ -974,35 +1111,53 @@ void sceneManager::drawParticles() {
 
 void sceneManager::drawGround() {
     if (drawFlags & GROUND) {
-        glVertexAttribPointer(vertex_attrib_idx,
+        glVertexAttribPointer(static_cast<GLuint>(vertex_attrib_idx),
                               3, // # of components per vertex attribute. Must be 1, 2, 3, or 4.
                               GL_FLOAT, // data type for component
                               GL_FALSE, // Normalized?
                               3 * sizeof(GLfloat), // byte offset between vertex attributes. attribute is a set of elements
                               groundComponents->data()); // define vertex array
 
-        GLfloat* colorData = groundColors->data();
-        glVertexAttribPointer(color_attrib_idx,
-                              3, // # of components per generic vertex attribute
-                              GL_FLOAT,
-                              GL_FALSE, // normalized?
-                              3 * sizeof(GLfloat), // byte offset between attributes. attribute is a set of elements
-                              colorData);
+        if (drawFlags & TEXTURE) {
+            GLfloat* st = groundTexComponents->data();
+            glVertexAttribPointer(static_cast<GLuint>(texture_coords_idx),
+                                  2, // # of components per generic vertex attribute
+                                  GL_FLOAT,
+                                  GL_FALSE, // normalized?
+                                  2 * sizeof(GLfloat), // byte offset between attributes. attribute is a set of elements
+                                  st);
+            glUniform1i(texture_uniform, 0);
+        }
+        else {
+            GLfloat* colorData = groundColors->data();
+            glVertexAttribPointer(static_cast<GLuint>(color_attrib_idx),
+                                  3, // # of components per generic vertex attribute
+                                  GL_FLOAT,
+                                  GL_FALSE, // normalized?
+                                  3 * sizeof(GLfloat), // byte offset between attributes. attribute is a set of elements
+                                  colorData);
+        }
 
+        if (drawFlags & TEXTURE) {
+            glEnableVertexAttribArray(texture_coords_idx);
+        }
         glEnableVertexAttribArray(vertex_attrib_idx);
         glEnableVertexAttribArray(color_attrib_idx);
 
-        // Draw the particles.  each particle is a little line segment
         GLenum drawMode = GL_TRIANGLES;
         if (drawFlags & WIREFRAME) {
             drawMode = GL_LINES;
         }
 
+        // Draw the particles.  each particle is a little line segment
         glDrawElements(drawMode,
                        groundIndices->size(),    // # of indicies in index array (# of short values, last param)
-                       GL_UNSIGNED_SHORT,  // data type of index array
+                       GL_UNSIGNED_SHORT,        // data type of index array
                        groundIndices->data());   // indicies_array
 
+        if (drawFlags & TEXTURE) {
+            glDisableVertexAttribArray(texture_coords_idx);
+        }
         glDisableVertexAttribArray(vertex_attrib_idx);
         glDisableVertexAttribArray(color_attrib_idx);
     }
@@ -1016,7 +1171,8 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 }
 
 // good place to create textures, or pass in from java side (resource -> byte array -> void* ?)
-void initialize(const char* strVertexSrc, const char* strFragmentSrc)
+void initialize(const char* strVertexSrc, const char* strFragmentSrc,
+                const char* strTexVpSrc, const char* strTexFpSrc)
 {
 	masterScene.printGLString("Version", GL_VERSION);
     masterScene.printGLString("Vendor", GL_VENDOR);
@@ -1024,7 +1180,9 @@ void initialize(const char* strVertexSrc, const char* strFragmentSrc)
     masterScene.printGLString("Extensions", GL_EXTENSIONS);
 
 //	LOGI("setupGraphics(%d, %d)", w, h);
-    masterScene.createProgram(strVertexSrc, strFragmentSrc);
+    masterScene.createPrograms(strVertexSrc, strFragmentSrc,
+                               strTexVpSrc, strTexFpSrc);
+    masterScene.initTextures();
 }
 
 void drawframe(int invalue) {
@@ -1061,13 +1219,17 @@ JNIEXPORT void JNICALL Java_com_neusoft_particle_ObjectJNI_jni_1touchdownHandler
 
 //public static native void jni_initialize(String strVertexSrc, String strFragmentSrc);
 JNIEXPORT void JNICALL Java_com_neusoft_particle_ObjectJNI_jni_1initialize
-        (JNIEnv *env, jclass, jstring strVertexSrc, jstring strFragmentSrc)
+        (JNIEnv *env, jclass, jstring strVertexSrc, jstring strFragmentSrc,
+        jstring strTextureVp, jstring strTextureFp)
 {
     unsigned char whatisthis = 0;
     const char *strVertex = env->GetStringUTFChars(strVertexSrc, &whatisthis);
     const char *strFragment = env->GetStringUTFChars(strFragmentSrc, &whatisthis);
 
-    initialize(strVertex, strFragment);
+    const char *strTextureVertex = env->GetStringUTFChars(strTextureVp, &whatisthis);
+    const char *strTextureFragment = env->GetStringUTFChars(strTextureFp, &whatisthis);
+
+    initialize(strVertex, strFragment, strTextureVertex, strTextureFragment);
 }
 
 /*
