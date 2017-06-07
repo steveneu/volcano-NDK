@@ -1,4 +1,5 @@
 #version 100
+
 uniform mat4 uMVPMatrix;
 
 attribute vec4 vPosition;
@@ -10,6 +11,6 @@ void main()
 {
     vVaryingTexCoords = vTexCoords;
 
-	// the matrix must be included as a modifier of gl_Position
-	gl_Position = uMVPMatrix * vPosition;
+    // the matrix must be included as a modifier of gl_Position
+    gl_Position = uMVPMatrix * vPosition;
 }

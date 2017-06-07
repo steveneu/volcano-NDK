@@ -198,6 +198,9 @@ public:
 };
 
 class sceneManager {
+    static const int mode_count =3;
+    int current_mode;
+    unsigned short drawModes[mode_count];
     unsigned short drawFlags;
     GLuint mProgram_particles;
     GLuint mProgram_texmesh;
@@ -206,6 +209,7 @@ class sceneManager {
     GLint color_attrib_idx;
     GLint texture_coords_idx;
     GLint texture_uniform;
+    GLint textureBool;
     GLint muMVPMatrixHandle;
 
     Matrix3x3 mMVPMatrix;
@@ -244,7 +248,8 @@ class sceneManager {
 
     ResizingArray<GLfloat>* groundComponents;
     ResizingArray<GLfloat>* groundTexComponents;
-    ResizingArray<GLushort>* groundIndices;
+    ResizingArray<GLushort>* groundIndicesLines;
+    ResizingArray<GLushort>* groundIndicesTriangles;
     ResizingArray<GLfloat>* groundColors;
 
     ResizingArray<GLfloat>* particleComponents;
@@ -262,11 +267,18 @@ class sceneManager {
     void setupParticleData();
 
     void drawVolcano();
-    void drawGround();
+    void drawGroundNoTexture();
+    void drawGroundWithTexture();
     void drawParticles();
 
     void setTextureProgram();
     void setBasicProgram();
+    inline bool flagSet(unsigned short flags, unsigned short bits) {
+        if ((flags & bits) == bits)
+            return true;
+        else
+            return false;
+    }
 public:
     sceneManager();
     ~sceneManager();
@@ -293,6 +305,13 @@ sceneManager::sceneManager() {
     drawFlags = OBELISK | PARTICLES | GROUND; // controls what objects are drawn (obelisk, particles, textures, etc.)
 //    drawFlags = OBELISK | PARTICLES | GROUND;
     debugLog = false;
+
+    drawModes[0] = OBELISK | PARTICLES | GROUND ;
+    drawModes[1] = OBELISK | PARTICLES | GROUND | WIREFRAME;
+    drawModes[2] = OBELISK | PARTICLES | GROUND | TEXTURE;
+
+    current_mode = 2;
+    drawFlags = drawModes[current_mode];
 
     mProgram_particles = mProgram_texmesh = 0;
     vertex_attrib_idx = color_attrib_idx = muMVPMatrixHandle = 0;
@@ -341,179 +360,174 @@ sceneManager::sceneManager() {
 }
 
 void sceneManager::setupVolcanoData() {
-    if (drawFlags & OBELISK) {
-        float obelisk_verts[] = { // 15 elements
-                // e: 0f, 0f, 1.0f, - obelisk vertices
-                // a: -.5f, .5f, 0,
-                // b: .5f, .5f, 0f,
-                // c: .5f, -.5f, 0f,
-                // d: -.5f, -.5f, 0f,
-                -0.5, 0.5, 0.0,     // a, 0
-                0.5, 0.5, 0.0,      // b, 1
-                0.5, -0.5, 0.0,     // c, 2
-                -0.5, -0.5, 0.0,    // d, 3
-                0.0, 0.0, 1.0,      // e, 4
-        };
+    float obelisk_verts[] = { // 15 elements
+            // e: 0f, 0f, 1.0f, - obelisk vertices
+            // a: -.5f, .5f, 0,
+            // b: .5f, .5f, 0f,
+            // c: .5f, -.5f, 0f,
+            // d: -.5f, -.5f, 0f,
+            -0.5, 0.5, 0.0,     // a, 0
+            0.5, 0.5, 0.0,      // b, 1
+            0.5, -0.5, 0.0,     // c, 2
+            -0.5, -0.5, 0.0,    // d, 3
+            0.0, 0.0, 1.0,      // e, 4
+    };
 
-        // start with somewhat arbitrary number of 200 particles. particleCount=200
-        // 2 vertices per particle (not for obelisk), 3 components per vertex
-        // vertices = new float[2 * 3 * (particles.size() + obeliskVerts)];
-        int componentCount = 0;
+    // start with somewhat arbitrary number of 200 particles. particleCount=200
+    // 2 vertices per particle (not for obelisk), 3 components per vertex
+    // vertices = new float[2 * 3 * (particles.size() + obeliskVerts)];
+    int componentCount = 0;
 
-        if (drawFlags & OBELISK || drawFlags & TRIANGLE) {
-            componentCount += sizeof(obelisk_verts) / sizeof(*obelisk_verts); // gives # of elements (floats)
-            volcanoComponents = new ResizingArray<GLfloat>(componentCount);
+    if (drawFlags & OBELISK || drawFlags & TRIANGLE) {
+        componentCount += sizeof(obelisk_verts) / sizeof(*obelisk_verts); // gives # of elements (floats)
+        volcanoComponents = new ResizingArray<GLfloat>(componentCount);
 
-            for(int i=0; i<componentCount; i++) {
-                volcanoComponents->add(obelisk_verts[i]);
-            }
+        for(int i=0; i<componentCount; i++) {
+            volcanoComponents->add(obelisk_verts[i]);
         }
-
-        // indices for GL_LINES drawing
-    //    GLushort ind[] = {0, 1, 1, 2, 2, 3, 3, 0, // base
-    //                      0, 4, 1, 4, 2, 4, 3, 4// connect top to base vertices
-    //    };
-        GLushort ind[] = {4,0,3, 4,1,0, 4,2,1, 4,3,2}; // GL_TRIANGLES
-
-        int numIndices = sizeof(ind)/sizeof(*ind);
-        volcanoIndices = new ResizingArray<GLushort>(numIndices);
-
-        for(int i=0; i<numIndices; i++) {
-            volcanoIndices->add(ind[i]);
-        }
-
-        volcanoColors = new ResizingArray<GLfloat>(componentCount * 3);
-        GLfloat red=1.0, green=1.0, blue=1.0;
-
-        volcanoColors->add(1.0); //0
-        volcanoColors->add(0.0);
-        volcanoColors->add(0.0);
-
-        volcanoColors->add(0.0); //1
-        volcanoColors->add(1.0);
-        volcanoColors->add(0.0);
-
-        volcanoColors->add(0.0); //2
-        volcanoColors->add(0.0);
-        volcanoColors->add(1.0);
-
-        volcanoColors->add(0.5); //3
-        volcanoColors->add(0.0);
-        volcanoColors->add(0.5);
-
-        volcanoColors->add(1.0); //4
-        volcanoColors->add(1.0);
-        volcanoColors->add(1.0);
     }
+
+    // indices for GL_LINES drawing
+//    GLushort ind[] = {0, 1, 1, 2, 2, 3, 3, 0, // base
+//                      0, 4, 1, 4, 2, 4, 3, 4// connect top to base vertices
+//    };
+    GLushort ind[] = {4,0,3, 4,1,0, 4,2,1, 4,3,2}; // GL_TRIANGLES
+
+    int numIndices = sizeof(ind)/sizeof(*ind);
+    volcanoIndices = new ResizingArray<GLushort>(numIndices);
+
+    for(int i=0; i<numIndices; i++) {
+        volcanoIndices->add(ind[i]);
+    }
+
+    volcanoColors = new ResizingArray<GLfloat>(componentCount * 3);
+    GLfloat red=1.0, green=1.0, blue=1.0;
+
+    volcanoColors->add(1.0); //0
+    volcanoColors->add(0.0);
+    volcanoColors->add(0.0);
+
+    volcanoColors->add(0.0); //1
+    volcanoColors->add(1.0);
+    volcanoColors->add(0.0);
+
+    volcanoColors->add(0.0); //2
+    volcanoColors->add(0.0);
+    volcanoColors->add(1.0);
+
+    volcanoColors->add(0.5); //3
+    volcanoColors->add(0.0);
+    volcanoColors->add(0.5);
+
+    volcanoColors->add(1.0); //4
+    volcanoColors->add(1.0);
+    volcanoColors->add(1.0);
 }
 
 void sceneManager::initTextures() {
-    if (drawFlags & TEXTURE) {
-        glGenTextures(1, &textureUnit0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, textureUnit0);
+    glGenTextures(1, &textureUnit0);
+    glBindTexture(GL_TEXTURE_2D, textureUnit0);
 
-        // generate square texture, checkerboard pattern
-        const int dimension = 64;
-        int c = 0;
-        int index = 0;
-        GLubyte* checkImage = new GLubyte[dimension*dimension*4];
-        for(int i=0; i<dimension; i++) {
-            for(int j=0; j<dimension; j++) {
-                //c = ((((i & 0x8) == 0)^((j & 0x8))==0))*255;
-                // precedence descending order: *, ==, &, ^, =
-//                bool iresult = i & 0x8;
-//                bool jresult = i & 0x8;
-//                c = (iresult == 0) ^ (jresult == 0);
-//                c *= 255;
-//                c = (( ((i & 0x8) == 0)^((j & 0x8)==0))*255;
-                c = (
-                            ((i & 0x8) == 0)^((j & 0x8) == 0)
-                    ) * 255;
-                // inline int sceneManager::assign(GLubyte* array, int row, int col, int pos, GLubyte value, int column_count) {
-                c = 128;
-                assign(checkImage, i, j, 0, static_cast<GLubyte>(c), dimension);
-                assign(checkImage, i, j, 1, static_cast<GLubyte>(c), dimension);
-                assign(checkImage, i, j, 2, static_cast<GLubyte>(c), dimension);
-                assign(checkImage, i, j, 3, static_cast<GLubyte>(0xFF), dimension);
-            }
+    // generate square texture, checkerboard pattern
+    const int dimension = 64;
+    GLubyte* checkImage = new GLubyte[dimension * dimension * 4];
+    int index = 0;
+
+    int c = 0;
+    for(int i=0; i<dimension; i++) {
+        for(int j=0; j<dimension; j++) {
+            c = ( ((i & 0x8) == 0)^((j & 0x8) == 0) ) * 255;
+            // inline int sceneManager::assign(GLubyte* array, int row, int col, int pos, GLubyte value, int column_count) {
+            checkImage[index++] = static_cast<GLubyte>(c); // red
+            checkImage[index++] = static_cast<GLubyte>(c); // grn
+            checkImage[index++] = static_cast<GLubyte>(c); // blu
+            checkImage[index++] = 0xFF; // alpha
         }
-
-        // copies client memory to GPU texture unit?
-        glTexImage2D(GL_TEXTURE_2D,
-                     0, // base image level for mipmapping
-                     GL_RGBA, // internal format
-                     64, // width
-                     64, // height
-                     0,  // border width, must be 0
-                     GL_RGBA, // format of texels, should match 3rd parameter
-                     GL_UNSIGNED_BYTE, //
-                     checkImage); // pointer to image data
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-        // at this point can release memory?
-        delete[] checkImage;
     }
+
+    // make a solid red texture- for testing
+//    for(int r=0; r<dimension; r++) {
+//        for(int c=0; c<dimension; c++) {
+//            checkImage[index++] = 0xFF; // red
+//            checkImage[index++] = 0x0; // grn
+//            checkImage[index++] = 0x0; // blu
+//            checkImage[index++] = 0xFF; // alpha
+//        }
+//    }
+
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // copies client memory to GPU texture unit?
+    glTexImage2D(GL_TEXTURE_2D,
+                 0, // base image level for mipmapping
+                 GL_RGBA, // internal format
+                 dimension, // width
+                 dimension, // height
+                 0,  // border width, must be 0
+                 GL_RGBA, // format of texels, should match 3rd parameter
+                 GL_UNSIGNED_BYTE, //
+                 checkImage); // pointer to image data
+
+    // at this point can release memory?
+    delete[] checkImage;
+    glEnable(GL_CULL_FACE);
 }
 
 void sceneManager::setupGroundData() {
-    if (drawFlags & GROUND) {
-        float ground_verts[] = { // 12 elements
-                 -2.0,  2.0, 0.0,      // e, 0  // ground vertices
-                 2.0, 2.0, 0.0,      // f, 1
-                2.0, -2.0, 0.0,      // g, 2
-                -2.0,  -2.0, 0.0      // h, 3
-        };
+    GLfloat ground_verts[] = { // 12 elements
+             -2.0,  2.0, 0.0,      // e, 0  // ground vertices
+             2.0, 2.0, 0.0,      // f, 1
+            2.0, -2.0, 0.0,      // g, 2
+            -2.0,  -2.0, 0.0      // h, 3
+    };
 
-        int componentCount = sizeof(ground_verts) / sizeof(*ground_verts); // gives # of elements (floats)
-        groundComponents = new ResizingArray<GLfloat>(componentCount);
+    int componentCount = sizeof(ground_verts) / sizeof(*ground_verts); // gives # of elements (floats)
+    groundComponents = new ResizingArray<GLfloat>(componentCount);
 
-        for(int i=0; i<componentCount; i++) {
-            groundComponents->add(ground_verts[i]);
-        }
+    for(int i=0; i<componentCount; i++) {
+        groundComponents->add(ground_verts[i]);
+    }
 
-        // store texture coordinates for ground
-        if (drawFlags & TEXTURE) {
-            float groundTexCoords[] = {
-                    0.0, 1.0,
-                    1.0, 1.0,
-                    1.0, 0.0,
-                    0.0, 0.0
-            };
-            int stCount = sizeof(groundTexCoords) / sizeof(*groundTexCoords);
-            groundTexComponents = new ResizingArray<GLfloat>(stCount);
-            for(int i=0; i<stCount; i++) {
-                groundTexComponents->add(groundTexCoords[i]);
-            }
-        }
+    // store texture coordinates for ground
+    GLfloat groundTexCoords[] = {
+            0.0, 1.0,
+            1.0, 1.0,
+            1.0, 0.0,
+            0.0, 0.0
+    };
 
-        GLushort indices_lines[] = {0,1, 1,2, 2,3, 3,0, 0,2};   // GL_LINES
-        GLushort indices_triangles[] = {0,2,1, 0,3,2}; // GL_TRIANGLES
-        int numIndices = 0;
-        if (drawFlags & WIREFRAME) {
-            numIndices = sizeof(indices_lines) / sizeof(*indices_lines);
-        }
-        else {
-            numIndices = sizeof(indices_triangles) / sizeof(*indices_triangles);
-        }
+    int stCount = sizeof(groundTexCoords) / sizeof(*groundTexCoords);
+    groundTexComponents = new ResizingArray<GLfloat>(stCount);
+    for(int i=0; i<stCount; i++) {
+        groundTexComponents->add(groundTexCoords[i]);
+    }
 
-        groundIndices = new ResizingArray<GLushort>(numIndices);
-        for(int i=0; i<numIndices; i++) {
-            if (drawFlags & WIREFRAME) {
-                groundIndices->add(indices_lines[i]);
-            } else {
-                groundIndices->add(indices_triangles[i]);
-            }
-        }
+    GLushort indices_lines[] = {0,1, 1,2, 2,3, 3,0, 0,2};   // GL_LINES
+    GLushort indices_triangles[] = {0,2,1, 0,3,2}; // GL_TRIANGLES
+    int numIndicesLines = 0;
+    int numIndicesTriangles = 0;
 
-        groundColors = new ResizingArray<GLfloat>(componentCount * 3);
-        for(int i=0; i<componentCount; i++) {
-            groundColors->add(1.0); //0
-            groundColors->add(1.0);
-            groundColors->add(1.0);
-        }
+    numIndicesLines= sizeof(indices_lines) / sizeof(*indices_lines);
+    numIndicesTriangles= sizeof(indices_triangles) / sizeof(*indices_triangles);
+
+    groundIndicesLines = new ResizingArray<GLushort>(numIndicesLines);
+    groundIndicesTriangles = new ResizingArray<GLushort>(numIndicesTriangles);
+
+    for(int i=0; i<numIndicesLines; i++) {
+        groundIndicesLines->add(indices_lines[i]);
+    }
+    for(int i=0; i<numIndicesTriangles; i++) {
+        groundIndicesTriangles->add(indices_triangles[i]);
+    }
+
+    groundColors = new ResizingArray<GLfloat>(componentCount * 3);
+    for(int i=0; i<componentCount; i++) {
+        groundColors->add(1.0); //0
+        groundColors->add(1.0);
+        groundColors->add(1.0);
     }
 }
 
@@ -552,7 +566,8 @@ sceneManager::~sceneManager() {
 
     delete groundComponents;
     delete groundColors;
-    delete groundIndices;
+    delete groundIndicesLines;
+    delete groundIndicesTriangles;
 
     if (drawFlags & TEXTURE) {
         glDeleteTextures(1, &textureUnit0);
@@ -636,21 +651,8 @@ void sceneManager::toggleTouchdown() {
     // cycle draw modes
     //drawFlags; WIREFRAME, TEXTURE, <neither>
     // INITIAL: drawFlags = OBELISK | PARTICLES | GROUND; // controls what objects are drawn (obelisk, particles, textures, etc.)
-    if (
-        !((drawFlags | WIREFRAME) == WIREFRAME) && !((drawFlags | TEXTURE) == TEXTURE)
-        ) {
-        drawFlags ^= WIREFRAME; // toggle WIREFRAME on
-    }
-    else if (
-            ((drawFlags | WIREFRAME)==WIREFRAME) && !((drawFlags | TEXTURE) == TEXTURE)
-            ) {
-        drawFlags ^= WIREFRAME; // toggle WIREFRAME off
-        drawFlags ^= TEXTURE;   // toggle TEXTURE on
-    }
-    else if ( !((drawFlags | WIREFRAME)==WIREFRAME) && ((drawFlags | TEXTURE)==TEXTURE)
-            ) {
-        drawFlags ^= TEXTURE; // toggle TEXTURE off, aka back to defaults
-    }
+    current_mode == mode_count-1 ? current_mode = 0 : current_mode++;
+    drawFlags = drawModes[current_mode];
 
     changeLookAt();
 }
@@ -778,33 +780,17 @@ void sceneManager::surfaceChanged(int w, int h) {
 
 // set program state for drawing with textures
 void sceneManager::setTextureProgram() {
-    texture_coords_idx = glGetAttribLocation(mProgram_texmesh, "vTexCoords");
-    checkGlError("glGetAttribLocation");
-
-    texture_uniform = glGetUniformLocation(mProgram_texmesh, "texture_unit");
-
-    glClearColor(0.0f, 0.5f, 0.0f, 1.0f);
     glUseProgram(mProgram_texmesh);
-    glUniform1i(texture_uniform, 0);
-//    glEnable(GL_CULL_FACE);
-//    glCullFace(GL_BACK);
+    // send the composite modelview projection matrix to the vertex shader
+    muMVPMatrixHandle = glGetUniformLocation(mProgram_texmesh, "uMVPMatrix");
+    glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mMVPMatrix.get());
 }
 
 // set state for drawing basic vertex/fragment shader pair (flat shading or wireframe)
 void sceneManager::setBasicProgram() {
-    vertex_attrib_idx = glGetAttribLocation(mProgram_particles, "vPosition");
-    checkGlError("glGetAttribLocation");
-    LOGI("glGetAttribLocation(\"vPosition\") = %d\n", vertex_attrib_idx);
-
-    color_attrib_idx = glGetAttribLocation(mProgram_particles, "vColor");
-    checkGlError("glGetAttribLocation");
-    LOGI("glGetAttribLocation(\"vColor\") = %d\n", color_attrib_idx);
-
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glUseProgram(mProgram_particles);
-
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    muMVPMatrixHandle = glGetUniformLocation(mProgram_particles, "uMVPMatrix");
+    glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mMVPMatrix.get());
 }
 
 void sceneManager::drawFrame() {
@@ -1011,27 +997,25 @@ void sceneManager::drawFrame() {
     mMVPMatrix.debugPrint(debugLog, "mMVPMatrix");
 
     // Redraw background color
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // send the composite modelview projection matrix to the vertex shader
-    glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mMVPMatrix.get());
-
     if (drawFlags & TEXTURE) {
+        setBasicProgram();
+        drawParticles();
+
         setTextureProgram();
-        drawGround();
+        drawGroundWithTexture();
 
         setBasicProgram();
         drawVolcano();
-        drawParticles();
     }
     else {
         setBasicProgram();
-        drawGround();
-        drawVolcano();
         drawParticles();
+        drawGroundNoTexture();
+        drawVolcano();
     }
-
-
 
     framesdrawn++;
     // every few seconds, write average fps over the last 10 seconds to log
@@ -1080,6 +1064,7 @@ void sceneManager::drawVolcano() {
 
 void sceneManager::drawParticles() {
     if (drawFlags & PARTICLES) {
+        vertex_attrib_idx = glGetAttribLocation(mProgram_particles, "vPosition");
         glVertexAttribPointer(vertex_attrib_idx,
                               3, // # of components per vertex attribute. Must be 1, 2, 3, or 4.
                               GL_FLOAT,
@@ -1088,6 +1073,7 @@ void sceneManager::drawParticles() {
                               particleComponents->data()); // define vertex array
 
         GLfloat* colorData = particleColors->data();
+        color_attrib_idx = glGetAttribLocation(mProgram_particles, "vColor");
         glVertexAttribPointer(color_attrib_idx,
                               3, // # of components per generic vertex attribute
                               GL_FLOAT,
@@ -1109,8 +1095,9 @@ void sceneManager::drawParticles() {
     }
 }
 
-void sceneManager::drawGround() {
-    if (drawFlags & GROUND) {
+void sceneManager::drawGroundNoTexture() {
+    if ( flagSet(drawFlags, GROUND) && !flagSet(drawFlags, TEXTURE) ) {
+        vertex_attrib_idx = glGetAttribLocation(mProgram_particles, "vPosition");
         glVertexAttribPointer(static_cast<GLuint>(vertex_attrib_idx),
                               3, // # of components per vertex attribute. Must be 1, 2, 3, or 4.
                               GL_FLOAT, // data type for component
@@ -1118,48 +1105,72 @@ void sceneManager::drawGround() {
                               3 * sizeof(GLfloat), // byte offset between vertex attributes. attribute is a set of elements
                               groundComponents->data()); // define vertex array
 
-        if (drawFlags & TEXTURE) {
-            GLfloat* st = groundTexComponents->data();
-            glVertexAttribPointer(static_cast<GLuint>(texture_coords_idx),
-                                  2, // # of components per generic vertex attribute
-                                  GL_FLOAT,
-                                  GL_FALSE, // normalized?
-                                  2 * sizeof(GLfloat), // byte offset between attributes. attribute is a set of elements
-                                  st);
-            glUniform1i(texture_uniform, 0);
-        }
-        else {
-            GLfloat* colorData = groundColors->data();
-            glVertexAttribPointer(static_cast<GLuint>(color_attrib_idx),
-                                  3, // # of components per generic vertex attribute
-                                  GL_FLOAT,
-                                  GL_FALSE, // normalized?
-                                  3 * sizeof(GLfloat), // byte offset between attributes. attribute is a set of elements
-                                  colorData);
-        }
+        GLfloat* colorData = groundColors->data();
+        color_attrib_idx = glGetAttribLocation(mProgram_particles, "vColor");
+        glVertexAttribPointer(static_cast<GLuint>(color_attrib_idx),
+                              3, // # of components per generic vertex attribute
+                              GL_FLOAT,
+                              GL_FALSE, // normalized?
+                              3 * sizeof(GLfloat), // byte offset between attributes. attribute is a set of elements
+                              colorData);
 
-        if (drawFlags & TEXTURE) {
-            glEnableVertexAttribArray(texture_coords_idx);
-        }
         glEnableVertexAttribArray(vertex_attrib_idx);
         glEnableVertexAttribArray(color_attrib_idx);
 
-        GLenum drawMode = GL_TRIANGLES;
         if (drawFlags & WIREFRAME) {
-            drawMode = GL_LINES;
+            glDrawElements(GL_LINES,
+                           groundIndicesLines->size(),    // # of indicies in index array (# of short values, last param)
+                           GL_UNSIGNED_SHORT,             // data type of index array
+                           groundIndicesLines->data());   // indicies_array
+        }
+        else {
+            glDrawElements(GL_TRIANGLES,
+                           groundIndicesTriangles->size(),    // # of indicies in index array (# of short values, last param)
+                           GL_UNSIGNED_SHORT,             // data type of index array
+                           groundIndicesTriangles->data());   // indicies_array
         }
 
-        // Draw the particles.  each particle is a little line segment
-        glDrawElements(drawMode,
-                       groundIndices->size(),    // # of indicies in index array (# of short values, last param)
-                       GL_UNSIGNED_SHORT,        // data type of index array
-                       groundIndices->data());   // indicies_array
-
-        if (drawFlags & TEXTURE) {
-            glDisableVertexAttribArray(texture_coords_idx);
-        }
         glDisableVertexAttribArray(vertex_attrib_idx);
         glDisableVertexAttribArray(color_attrib_idx);
+    }
+}
+
+void sceneManager::drawGroundWithTexture() {
+    if (flagSet(drawFlags, GROUND | TEXTURE)) {
+        vertex_attrib_idx = glGetAttribLocation(mProgram_texmesh, "vPosition");
+        glVertexAttribPointer(static_cast<GLuint>(vertex_attrib_idx),
+                              3, // # of components per vertex attribute. Must be 1, 2, 3, or 4.
+                              GL_FLOAT, // data type for component
+                              GL_FALSE, // Normalized?
+                              3 * sizeof(GLfloat), // byte offset between vertex attributes. attribute is a set of elements
+                              groundComponents->data()); // define vertex array
+
+        texture_coords_idx = glGetAttribLocation(mProgram_texmesh, "vTexCoords");
+        glVertexAttribPointer(static_cast<GLuint>(texture_coords_idx),
+                              2, // # of components per generic vertex attribute
+                              GL_FLOAT,
+                              GL_FALSE, // normalized?
+                              2 * sizeof(GLfloat), // byte offset between attributes. attribute is a set of elements
+                              groundTexComponents->data());
+
+        glEnableVertexAttribArray(vertex_attrib_idx);
+        glEnableVertexAttribArray(texture_coords_idx);
+
+        if (drawFlags & WIREFRAME) {
+            glDrawElements(GL_LINES,
+                           groundIndicesLines->size(),    // # of indicies in index array (# of short values, last param)
+                           GL_UNSIGNED_SHORT,             // data type of index array
+                           groundIndicesLines->data());   // indicies_array
+        }
+        else {
+            glDrawElements(GL_TRIANGLES,
+                           groundIndicesTriangles->size(),    // # of indicies in index array (# of short values, last param)
+                           GL_UNSIGNED_SHORT,             // data type of index array
+                           groundIndicesTriangles->data());   // indicies_array
+        }
+
+        glDisableVertexAttribArray(vertex_attrib_idx);
+        glDisableVertexAttribArray(texture_coords_idx);
     }
 }
 

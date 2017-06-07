@@ -1,40 +1,6 @@
-{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033\deflangfe1033{\fonttbl{\f0\fmodern\fprq1\fcharset0 DejaVu Sans Mono;}{\f1\fswiss\fprq2\fcharset0 Calibri;}{\f2\fmodern\fprq1\fcharset0 Courier New;}}
-{\colortbl ;\red0\green0\blue255;\red0\green0\blue0;\red144\green139\blue37;\red169\green183\blue198;\red204\green120\blue50;}
-{\*\generator Riched20 10.0.10586}{\*\mmathPr\mdispDef1\mwrapIndent1440 }\viewkind4\psz1
-{\*\jarte object RichPersist
-  Version = 2
-  LMarg = 1440
-  RMarg = 1440
-  TMarg = 1440
-  BMarg = 1440
-  Equal = True
-  Orient = 1
-  Size = 1
-  Width = 2159
-  Height = 2794
-  LHdr = '$3B'
-  MHdr = '$3B'
-  RHdr = '$3B'
-  LFtr = '$3B'
-  MFtr = '$3B'
-  RFtr = '$3B'
-  PrtHdr = True
-  PrtFtr = True
-  HdrMarg = 1440
-  FtrMarg = 1440
-  HdrFont.Charset = DEFAULT_CHARSET
-  HdrFont.Color = clWindowText
-  HdrFont.Height = -13
-  HdrFont.Name = 'MS Sans Serif'
-  HdrFont.Style = []
-  Wrap = 2
-  WMark = 'None'
-  WColor = 13822463
-  BlackInk = True
-  Collate = True
-  SpellDict = 'ssceam2.clx'
-end
-}\uc1 
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033\deflangfe1033{\fonttbl{\f0\fmodern\fprq1\fcharset0 DejaVu Sans Mono;}{\f1\fswiss\fprq2\fcharset0 Calibri;}{\f2\fmodern\fprq1\fcharset0 Courier New;}{\f3\fnil\fcharset0 Lucida Console;}{\f4\fnil\fcharset0 Calibri;}}
+{\colortbl ;\red0\green0\blue255;\red0\green0\blue0;\red144\green139\blue37;\red169\green183\blue198;\red204\green120\blue50;\red255\green0\blue0;}
+{\*\generator Riched20 10.0.15063}{\*\mmathPr\mdispDef1\mwrapIndent1440 }\viewkind4\uc1 
 \pard\nowidctlpar\qc\f0\fs28 work log, particle port\f1\fs22\par
 
 \pard\nowidctlpar\par
@@ -163,5 +129,41 @@ updated android api to 7.1.1\par
 5/24-  \tab * attempting to debug why glGetVertexAttribLocation() fails when attempting to get vertex shader texture coordinate value\par
 5/25-\tab * same as yesterday.  fixed bug!  cleaned up shaders, the whole pipeline of an attribute has to match in both shaders to not get optimized out.  also client code was quering the wrong attribute string.  removed line in shader\par
 5/26-\tab * still no textures, tried changing clearcolor & setting texparametri(). added code to cycle between display modes\par
+5/27-5/30 * wiped system and re-installed windows10, android studio, and dependent software.  installed default NDK v14.  same build error found: \par
+\par
+
+\pard\nowidctlpar\li720\cf6\f3\fs16 FAILURE: Build failed with an exception.\par
+\par
+* What went wrong:\par
+Execution failed for task ':app:externalNativeBuildDebug'.\par
+> Build command failed.\par
+Error while executing process C:\\android-sdk\\ndk-bundle\\ndk-build.cmd with arguments \{NDK_PROJECT_PATH=null APP_BUILD_SCRIPT=Z:\\Software-dev\\Android\\Android-ndk\\volcano-NDK-github\\app\\src\\main\\jni\\Android.mk NDK_APPLICATION_MK=Z:\\Software-dev\\Android\\Android-ndk\\volcano-NDK-github\\app\\src\\main\\jni\\Application.mk APP_ABI=mips NDK_ALL_ABIS=mips NDK_DEBUG=1 APP_PLATFORM=android-9 NDK_OUT=Z:/Software-dev/Android/Android-ndk/volcano-NDK-github/app/build/intermediates/ndkBuild/debug/obj NDK_LIBS_OUT=Z:\\Software-dev\\Android\\Android-ndk\\volcano-NDK-github\\app\\build\\intermediates\\ndkBuild\\debug\\lib Z:/Software-dev/Android/Android-ndk/volcano-NDK-github/app/build/intermediates/ndkBuild/debug/obj/local/mips/libparticle-jni.so\}\par
+[mips] Compile++      : particle-jni <= gl_code.cpp\par
+fatal error: error in backend: Undefined temporary symbol\par
+make: *** [Z:/Software-dev/Android/Android-ndk/volcano-NDK-github/app/build/intermediates/ndkBuild/debug/obj/local/mips/objs-debug/particle-jni/gl_code.o] Error 1\par
+\par
+\par
+* Try:\par
+Run with --stacktrace option to get the stack trace. Run with --info or --debug option to get more log output.\par
+\par
+BUILD FAILED\par
+\cf0\par
+
+\pard\nowidctlpar\f4\fs22\tab * goto oracle java download page, get JDK from 'java se downloads' and install path.  set env var JAVA_HOME to JDK installed path.  (only needed for sdkmanager.bat)\par
+5/31-\tab\par
+\tab * got program running again.  make sure to import project instead of opening project from studio simple interface.\par
+\tab * implemented drawing mode switching on screen tap\par
+\tab * tried gpu monitor\par
+\tab * downloading/install of GPU debugger\par
+6/1, 6/4, 6/5-\par
+\tab * debugging non-display of textured ground.  \par
+\tab * download/built/ran GAPID, graphics API debugger\par
+6/6- \tab\par
+\tab * fixed black screen texture ground bug.  needed to set program (glUseProgram())before calling and send matrix uniform to correct program when switching programs.  'black' drawn previously when frag/vertex shader did not have a valid MVP matrix, may have had garbage values.\par
+\tab * modifications to draw objects in the correct order.\par
+\tab * change build target to android-25, min verstion 16\par
+\par
+\par
+\par
 }
  
