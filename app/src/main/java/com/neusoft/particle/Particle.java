@@ -5,6 +5,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -133,6 +135,36 @@ public class Particle extends Activity {
 
 			setRenderer(renderer);
 			capturedmagneticfield = false;
+
+			// read texture from resources
+			int[] pixels;
+			BitmapFactory.Options opts = new BitmapFactory.Options();
+			opts.inDensity = 0;
+			opts.inTargetDensity = 0;
+			opts.inPremultiplied = false;
+			opts.inScaled = false;
+			opts.inSampleSize = 1;
+			Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.raw.chameleon_png, opts);
+//			int rowbytes = bitmap.getRowBytes(); //Return the number of bytes between rows in the bitmap's pixels
+//			boolean hasalpha = bitmap.hasAlpha();
+			int bytecount = bitmap.getByteCount(); // Returns the minimum number of bytes that can be used to store this bitmap's pixels.
+			int w = bitmap.getWidth(); // width in bytes? pixels x bpc
+			int h = bitmap.getHeight();
+
+			pixels = new int[bytecount/4]; // 4 bytes per channel if alpha present
+			int stride = w;
+			int rowPixels = w;//w;
+			int rowstoread = h;//h;
+			bitmap.getPixels(pixels, // The array to receive the bitmap's colors
+					0, // offset- The first index to write into pixels[]
+					stride, // stride- The number of entries in pixels[] to skip between rows (must be >= bitmap's width). Can be negative.
+					0, // The x coordinate of the first pixel to read from the bitmap
+					0, // The y coordinate of the first pixel to read from the bitmap
+					rowPixels, // The number of pixels to read from each row
+					rowstoread); // The number of rows to read
+
+			// send textures to native side
+			renderer.pokeBitmap(pixels, w, h);
 		}
 
 		public String readRawTextFile(Context ctx, int resId)

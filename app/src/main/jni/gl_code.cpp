@@ -253,7 +253,8 @@ class sceneManager {
     ResizingArray<GLfloat>* groundColors;
 
     ResizingArray<GLfloat>* particleComponents;
-    ResizingArray<GLushort>* particleIndices;
+    ResizingArray<GLushort>* particleIndicesLines;
+    ResizingArray<GLushort>* particleIndicesPoints;
     ResizingArray<GLfloat>* particleColors;
 
     // convert indices of 3d array to absolute position of row major array
@@ -293,6 +294,7 @@ public:
                    const Vec3& target,
                    const Vec3& upDir) const;
     void initTextures();
+    void storeTexture(GLubyte* tex, int width, int height);
     GLuint loadShader(GLenum shaderType, const char* pSource);
     void createProgram(GLuint* program, const char* pVertexSource, const char* pFragmentSource);
     void createPrograms(const char* pVertexSource, const char* pFragmentSource,
@@ -424,6 +426,31 @@ void sceneManager::setupVolcanoData() {
     volcanoColors->add(1.0);
 }
 
+void sceneManager::storeTexture(GLubyte* tex, int width, int height) {
+    //GLubyte is unsigned char
+
+    glGenTextures(1, &textureUnit0);
+    glBindTexture(GL_TEXTURE_2D, textureUnit0);
+
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // copies client memory to GPU texture unit
+    glTexImage2D(GL_TEXTURE_2D,
+                 0, // base image level for mipmapping
+                 GL_RGBA, // internal format
+                 width, // width
+                 height, // height
+                 0,  // border width, must be 0
+                 GL_RGBA, // format of texels, should match 3rd parameter
+                 GL_UNSIGNED_BYTE, //
+                 tex); // pointer to image data
+    glEnable(GL_CULL_FACE);
+}
+
+// use this for generated textures, call from initialize()
 void sceneManager::initTextures() {
     glGenTextures(1, &textureUnit0);
     glBindTexture(GL_TEXTURE_2D, textureUnit0);
@@ -536,9 +563,14 @@ void sceneManager::setupParticleData() {
         // 3 components per vertex, 2 vertices per particle (particle is a little line segment)
         particleComponents = new ResizingArray<GLfloat>(3 * 2 * particleCount);
 
-        particleIndices = new ResizingArray<GLushort>(2 * particleCount);
+        particleIndicesLines = new ResizingArray<GLushort>(2 * particleCount);
         for(int i = 0; i < 2 * particleCount; i++) {
-            particleIndices->add(i);
+            particleIndicesLines->add(i);
+        }
+
+        particleIndicesPoints = new ResizingArray<GLushort>(particleCount);
+        for(int i=0; i<particleCount; i++) {
+            particleIndicesPoints->add(i);
         }
 
         // 4 floats per color(rgba), 2 colors per particle (each end of line seg.)
@@ -1001,14 +1033,12 @@ void sceneManager::drawFrame() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     if (drawFlags & TEXTURE) {
-        setBasicProgram();
-        drawParticles();
-
         setTextureProgram();
         drawGroundWithTexture();
 
         setBasicProgram();
         drawVolcano();
+        drawParticles();
     }
     else {
         setBasicProgram();
@@ -1086,9 +1116,15 @@ void sceneManager::drawParticles() {
 
         // Draw the particles.  each particle is a little line segment
         glDrawElements(GL_LINES,
-                       particleIndices->size(),    // # of indicies in index array (# of short values, last param)
+                       particleIndicesLines->size(),    // # of indicies in index array (# of short values, last param)
                        GL_UNSIGNED_SHORT ,  // data type of index array
-                       particleIndices->data());   // indicies_array
+                       particleIndicesLines->data());   // indicies_array
+
+        // Draw the particles as points
+        glDrawElements(GL_POINTS,
+                       particleIndicesPoints->size(),    // # of indicies in index array (# of short values, last param)
+                       GL_UNSIGNED_SHORT ,  // data type of index array
+                       particleIndicesPoints->data());   // indicies_array
 
         glDisableVertexAttribArray(vertex_attrib_idx);
         glDisableVertexAttribArray(color_attrib_idx);
@@ -1193,7 +1229,7 @@ void initialize(const char* strVertexSrc, const char* strFragmentSrc,
 //	LOGI("setupGraphics(%d, %d)", w, h);
     masterScene.createPrograms(strVertexSrc, strFragmentSrc,
                                strTexVpSrc, strTexFpSrc);
-    masterScene.initTextures();
+    //masterScene.initTextures();
 }
 
 void drawframe(int invalue) {
@@ -1258,7 +1294,7 @@ JNIEXPORT void JNICALL Java_com_neusoft_particle_ObjectJNI_jni_1receiveMatrix
     jfloatArray result;
     result = env->NewFloatArray(16);
     if (result == NULL) {
-        // todo: handle error, can't allocate new float array
+    // todo: handle error, can't allocate new float array
     }
 
     jfloat matrix[16];
@@ -1268,6 +1304,31 @@ JNIEXPORT void JNICALL Java_com_neusoft_particle_ObjectJNI_jni_1receiveMatrix
 
     env->ReleaseFloatArrayElements(jfa, pmatrix, 0);
 }
+
+JNIEXPORT void JNICALL Java_com_neusoft_particle_ObjectJNI_jni_1pushTexture(JNIEnv* env,
+                                                           jclass,
+                                                           jintArray arr, jint w, jint h) {
+    int len = w * h * 4;
+
+    // todo: free resource?
+    int* body = env->GetIntArrayElements(arr, NULL);
+
+    GLubyte* cImgData;
+    cImgData = new GLubyte[len];
+
+    unsigned int pos = 0;
+    // Converts ARGB data from android Bitmap into RGBA (OpenGL)
+    for(int i=0; i<len; i++) {
+        cImgData[pos++] = (body[i] & 0xff0000) >> 16; // red
+        cImgData[pos++] = (body[i] & 0xff00) >> 8; // grn
+        cImgData[pos++] = body[i] & 0xff; // blu
+        cImgData[pos++] = (body[i] & 0xff000000) >> 24; // alpha
+    }
+
+    masterScene.storeTexture(cImgData, w, h);
+    delete[] cImgData;
+}
+
 } // end extern "C"
 
 

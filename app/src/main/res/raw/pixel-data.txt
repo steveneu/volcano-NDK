@@ -1,0 +1,55 @@
+one pixel png:
+
+	rowbytes: 12		// # of bytes between rows in the bitmaps pixels
+	hasalpha: true
+	bytecount: 36 		// Returns the minimum number of bytes that can be used to store this bitmap's pixels. 
+	w: 3
+	h: 3
+
+
+3x2 png
+	0: 171, 77, 85 		0xAB, 0x4D, 0x55
+	1: 63, 10, 204		0x3F, 0xA,  0xCC
+	2: 125, 153, 136	0x7D, 0x99, 0x88
+	3: 177, 69, 102		0xB1, 0x45, 0x66
+	4: 98, 17, 51		0x62, 0x11, 0x33
+	5: 34, 68, 119		0x22, 0x44, 0x77
+
+	rowbytes: 36		// # of bytes between rows in the bitmaps pixels
+	hasalpha: false
+	bytecount: 216 		// Returns the minimum number of bytes that can be used to store this bitmap's pixels. 
+	w: 9
+	h: 6
+-------
+
+smiliey
+	outline
+            202,  254, 51
+	   0xCA, 0xFE, 0x33
+
+ left eye:
+	154	139	124	
+	0x9a	0x8b	0x7c
+
+ right eye: 
+	109	94	79
+	0x6d	0x5e	0x4f
+smile: 
+	88	77	66
+	0x58 	0x4D	0x42
+bg:
+	109	203	231
+	0x6d	0xcb	0xe7
+
+
+	31	46	61	
+	0x1f	0x2e	0x3d
+	
+-----------------
+
+(body[0] & 0xff000000) >> 24 // alpha
+
+(body[0] & 0xff0000) >> 16 // red
+(body[0] & 0xff00) >> 8 // grn
+body[0] & 0xff // blu
+

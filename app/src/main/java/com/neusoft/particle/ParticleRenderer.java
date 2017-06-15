@@ -19,6 +19,8 @@ import com.neusoft.particle.R;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -60,6 +62,9 @@ public class ParticleRenderer implements GLSurfaceView.Renderer
     private String fragment_program;
     private String vertex_texture_program;
     private String fragment_texture_program;
+    int textureWidth;
+    int textureHeight;
+    int[] pixels;
 
     public ParticleRenderer(Context ctxt) { }
     
@@ -69,6 +74,12 @@ public class ParticleRenderer implements GLSurfaceView.Renderer
 	   	 //DisplayMetrics metrics = new DisplayMetrics();
 	   	 //getWindowManager().getDefaultDisplay().getMetrics(metrics);
 		ObjectJNI.jni_touchdownHandler();
+    }
+
+    public void pokeBitmap(int[] pixIn, int width, int height) {
+        pixels = pixIn;
+        textureWidth = width;
+        textureHeight = height;
     }
     
     public void receiveMatrix(float[] mO)
@@ -97,6 +108,7 @@ public class ParticleRenderer implements GLSurfaceView.Renderer
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
 		ObjectJNI.jni_initialize(vertex_program, fragment_program, vertex_texture_program,
                 fragment_texture_program);
+        ObjectJNI.jni_pushTexture(pixels, textureWidth, textureHeight);
     }
     
     public void onDrawFrame(GL10 unused) {

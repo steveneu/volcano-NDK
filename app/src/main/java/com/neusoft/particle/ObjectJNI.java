@@ -13,6 +13,7 @@ ObjectJNI {
 	public static native void jni_surfaceChanged(int inwidth, int inheight);
 	public static native void jni_touchdownHandler();
 	public static native void jni_receiveMatrix(float[] jfa);
+	public static native void jni_pushTexture(int[] arr, int w, int h);
 
 	//public static native void Java_com_neusoft_particle_jni_initialize1(String strVertexSrc, String strFragmentSrc);
 
