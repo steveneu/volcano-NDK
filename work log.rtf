@@ -162,8 +162,15 @@ BUILD FAILED\par
 \tab * fixed black screen texture ground bug.  needed to set program (glUseProgram())before calling and send matrix uniform to correct program when switching programs.  'black' drawn previously when frag/vertex shader did not have a valid MVP matrix, may have had garbage values.\par
 \tab * modifications to draw objects in the correct order.\par
 \tab * change build target to android-25, min verstion 16\par
-\par
-\par
-\par
+6/7 -- 6/15-\par
+\tab * got textures loading from resources/png file\par
+\tab * added test  textures to resources\par
+\tab * add txt file containing texture data details\par
+\tab * messing with GL_POINTS on particle endpoints\par
+\tab * updated gradle plugin to 2.3.2 and gradle to 3.3\par
+6/22-\par
+\tab * figured out texture coordinate problem. need to have coords for each vertex, requires redundant vertices\par
+\tab * created test 'quilt' texture\par
+\tab * known issue, one of the draw modes not working\par
 }
  

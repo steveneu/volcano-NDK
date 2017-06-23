@@ -245,6 +245,7 @@ class sceneManager {
     ResizingArray<GLfloat>* volcanoComponents;
     ResizingArray<GLushort>* volcanoIndices;
     ResizingArray<GLfloat>* volcanoColors;
+    ResizingArray<GLfloat>* volcanoTexComponents;
 
     ResizingArray<GLfloat>* groundComponents;
     ResizingArray<GLfloat>* groundTexComponents;
@@ -268,6 +269,7 @@ class sceneManager {
     void setupParticleData();
 
     void drawVolcano();
+    void drawVolcanoWithTexture();
     void drawGroundNoTexture();
     void drawGroundWithTexture();
     void drawParticles();
@@ -368,11 +370,34 @@ void sceneManager::setupVolcanoData() {
             // b: .5f, .5f, 0f,
             // c: .5f, -.5f, 0f,
             // d: -.5f, -.5f, 0f,
-            -0.5, 0.5, 0.0,     // a, 0
-            0.5, 0.5, 0.0,      // b, 1
-            0.5, -0.5, 0.0,     // c, 2
-            -0.5, -0.5, 0.0,    // d, 3
+
+            // need to duplicate vertices for proper texture coordinate mapping.
+            // order for right hand rule winding (CCW): apex, bl, br
+
+            // 4,1,0    4,2,1   4,3,2   4,0,3
+            // e,b,a    e,c,b   e,d,c   e,a,d
+
             0.0, 0.0, 1.0,      // e, 4
+            0.5, 0.5, 0.0,      // b, 1
+            -0.5, 0.5, 0.0,     // a, 0
+
+            0.0, 0.0, 1.0,      // e, 4
+            0.5, -0.5, 0.0,     // c, 2
+            0.5, 0.5, 0.0,      // b, 1
+
+            0.0, 0.0, 1.0,      // e, 4
+            -0.5, -0.5, 0.0,    // d, 3
+            0.5, -0.5, 0.0,     // c, 2
+
+            0.0, 0.0, 1.0,      // e, 4
+            -0.5, 0.5, 0.0,     // a, 0
+            -0.5, -0.5, 0.0,    // d, 3
+
+//            -0.5, 0.5, 0.0,     // a, 0   // old coordinates, no dupes
+//            0.5, 0.5, 0.0,      // b, 1
+//            0.5, -0.5, 0.0,     // c, 2
+//            -0.5, -0.5, 0.0,    // d, 3
+//            0.0, 0.0, 1.0,      // e, 4
     };
 
     // start with somewhat arbitrary number of 200 particles. particleCount=200
@@ -393,7 +418,8 @@ void sceneManager::setupVolcanoData() {
 //    GLushort ind[] = {0, 1, 1, 2, 2, 3, 3, 0, // base
 //                      0, 4, 1, 4, 2, 4, 3, 4// connect top to base vertices
 //    };
-    GLushort ind[] = {4,0,3, 4,1,0, 4,2,1, 4,3,2}; // GL_TRIANGLES
+//    GLushort ind[] = {4,0,3, 4,1,0, 4,2,1, 4,3,2}; // GL_TRIANGLES
+    GLushort ind[] = {0,1,2, 3,4,5, 6,7,8, 9,10,11}; // GL_TRIANGLES
 
     int numIndices = sizeof(ind)/sizeof(*ind);
     volcanoIndices = new ResizingArray<GLushort>(numIndices);
@@ -518,11 +544,52 @@ void sceneManager::setupGroundData() {
         groundComponents->add(ground_verts[i]);
     }
 
+    // indices GLushort ind[] = {4,0,3, 4,1,0, 4,2,1, 4,3,2}; // GL_TRIANGLES
+
+//           -0.5, 0.5, 0.0,     // a, 0    - br
+//            0.5, 0.5, 0.0,      // b, 1   - bl
+//            0.5, -0.5, 0.0,     // c, 2   - bl
+//            -0.5, -0.5, 0.0,    // d, 3
+//            0.0, 0.0, 1.0,      // e, 4 - apex
+
+    // store texture coordinates for volcano
+    GLfloat volcanoTexCoords[] = {
+            .8941, .0352, // apex            228, 10     .8906, .0391
+            .7843, .1137, // bottom left   204, 27      .7969, .1055
+            1.0, .1137, // bottom right    255, 27      1.0,    .1055
+
+            .8941, .0352, // apex            228, 10     .8906, .0391
+            .7843, .1137, // bottom left   204, 27      .7969, .1055
+            1.0, .1137, // bottom right    255, 27      1.0,    .1055
+
+            .8941, .0352, // apex            228, 10     .8906, .0391
+            .7843, .1137, // bottom left   204, 27      .7969, .1055
+            1.0, .1137, // bottom right    255, 27      1.0,    .1055
+
+            .8941, .0352, // apex            228, 10     .8906, .0391
+            .7843, .1137, // bottom left   204, 27      .7969, .1055
+            1.0, .1137 // bottom right    255, 27      1.0,    .1055
+    };
+
+//    GLushort ind[] = {4,0,3, 4,1,0, 4,2,1, 4,3,2}; // GL_TRIANGLES
+
+//            -0.5,  0.5,  0.0,     // a, 0
+//             0.5,  0.5,  0.0,      // b, 1
+//             0.5, -0.5,  0.0,     // c, 2
+//            -0.5, -0.5,  0.0,    // d, 3
+//             0.0,  0.0,  1.0,      // e, 4
+
+    int stCountVolcano = sizeof(volcanoTexCoords)/sizeof(*volcanoTexCoords);
+    volcanoTexComponents = new ResizingArray<GLfloat>(stCountVolcano);
+    for(int i=0; i<stCountVolcano; i++) {
+        volcanoTexComponents->add(volcanoTexCoords[i]);
+    }
+
     // store texture coordinates for ground
     GLfloat groundTexCoords[] = {
             0.0, 1.0,
-            1.0, 1.0,
-            1.0, 0.0,
+            0.777, 1.0,
+            0.777, 0.0,
             0.0, 0.0
     };
 
@@ -1035,9 +1102,9 @@ void sceneManager::drawFrame() {
     if (drawFlags & TEXTURE) {
         setTextureProgram();
         drawGroundWithTexture();
+        drawVolcanoWithTexture();
 
         setBasicProgram();
-        drawVolcano();
         drawParticles();
     }
     else {
@@ -1089,6 +1156,45 @@ void sceneManager::drawVolcano() {
 
         glDisableVertexAttribArray(vertex_attrib_idx);
         glDisableVertexAttribArray(color_attrib_idx);
+    }
+}
+
+void sceneManager::drawVolcanoWithTexture() {
+    if (flagSet(drawFlags, OBELISK)) {
+        vertex_attrib_idx = glGetAttribLocation(mProgram_texmesh, "vPosition");
+        glVertexAttribPointer(static_cast<GLuint>(vertex_attrib_idx),
+                              3, // # of components per vertex attribute. Must be 1, 2, 3, or 4.
+                              GL_FLOAT, // data type for component
+                              GL_FALSE, // Normalized?
+                              3 * sizeof(GLfloat), // byte offset between vertex attributes. attribute is a set of elements
+                              volcanoComponents->data()); // define vertex array
+
+        texture_coords_idx = glGetAttribLocation(mProgram_texmesh, "vTexCoords");
+        glVertexAttribPointer(static_cast<GLuint>(texture_coords_idx),
+                              2, // # of components per generic vertex attribute
+                              GL_FLOAT,
+                              GL_FALSE, // normalized?
+                              2 * sizeof(GLfloat), // byte offset between attributes. attribute is a set of elements
+                              volcanoTexComponents->data());
+
+        glEnableVertexAttribArray(vertex_attrib_idx);
+        glEnableVertexAttribArray(texture_coords_idx);
+
+        if (drawFlags & WIREFRAME) {
+            glDrawElements(GL_LINES,
+                           groundIndicesLines->size(),    // # of indicies in index array (# of short values, last param)
+                           GL_UNSIGNED_SHORT,             // data type of index array
+                           groundIndicesLines->data());   // indicies_array
+        }
+        else {
+            glDrawElements(GL_TRIANGLES,
+                           volcanoIndices->size(),    // # of indicies in index array (# of short values, last param)
+                           GL_UNSIGNED_SHORT,             // data type of index array
+                           volcanoIndices->data());   // indicies_array
+        }
+
+        glDisableVertexAttribArray(vertex_attrib_idx);
+        glDisableVertexAttribArray(texture_coords_idx);
     }
 }
 

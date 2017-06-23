@@ -144,7 +144,7 @@ public class Particle extends Activity {
 			opts.inPremultiplied = false;
 			opts.inScaled = false;
 			opts.inSampleSize = 1;
-			Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.raw.chameleon_png, opts);
+			Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.raw.volcano_ground, opts); // volcano_ground, quilt_test
 //			int rowbytes = bitmap.getRowBytes(); //Return the number of bytes between rows in the bitmap's pixels
 //			boolean hasalpha = bitmap.hasAlpha();
 			int bytecount = bitmap.getByteCount(); // Returns the minimum number of bytes that can be used to store this bitmap's pixels.
